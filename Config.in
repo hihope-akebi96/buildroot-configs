@@ -1,0 +1,10 @@
+# -------------------------------
+# Global Config include
+# -------------------------------
+source "$BR2_EXTERNAL_BSP_PATH/board/common/Config.in"
+
+# -------------------------------
+# for private package include
+# -------------------------------
+source "$BR2_EXTERNAL_BSP_PATH/boot/Config.in"
+source "$BR2_EXTERNAL_BSP_PATH/package/Config.in"

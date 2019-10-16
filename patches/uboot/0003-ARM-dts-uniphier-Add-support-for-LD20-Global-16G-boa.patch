@@ -1,0 +1,45 @@
+From 55bf27ec1ec18a8817eae021c6e76fe7b70146ed Mon Sep 17 00:00:00 2001
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Date: Tue, 4 Jun 2019 10:17:57 +0900
+Subject: [PATCH 03/16] ARM: dts: uniphier: Add support for LD20 Global 16G
+ board
+
+Add initial device tree support for LD20 Global 16G board.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+---
+ arch/arm/dts/Makefile                    | 1 +
+ arch/arm/dts/uniphier-ld20-global16g.dts | 8 ++++++++
+ 2 files changed, 9 insertions(+)
+ create mode 100644 arch/arm/dts/uniphier-ld20-global16g.dts
+
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 7f680fe..642df58 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -160,6 +160,7 @@ dtb-$(CONFIG_ARCH_UNIPHIER_LD11) += \
+ dtb-$(CONFIG_ARCH_UNIPHIER_LD20) += \
+ 	uniphier-ld20-global.dtb \
+ 	uniphier-ld20-global-v4.dtb \
++	uniphier-ld20-global16g.dtb \
+ 	uniphier-ld20-ref.dtb
+ dtb-$(CONFIG_ARCH_UNIPHIER_LD4) += \
+ 	uniphier-ld4-ref.dtb
+diff --git a/arch/arm/dts/uniphier-ld20-global16g.dts b/arch/arm/dts/uniphier-ld20-global16g.dts
+new file mode 100644
+index 0000000..33a1a76
+--- /dev/null
++++ b/arch/arm/dts/uniphier-ld20-global16g.dts
+@@ -0,0 +1,8 @@
++#include "uniphier-ld20-global.dts"
++
++/ {
++	compatible = "socionext,uniphier-global16g", "socionext,uniphier-ld20";
++	memory {
++		reg = <0 0x80000000 0 0x80000000>;
++	};
++};
+-- 
+2.7.4
+

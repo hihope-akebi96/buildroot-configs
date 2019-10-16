@@ -1,0 +1,3 @@
+
+config BR2_TARGET_UNIPHIER_BL
+    bool "build Uniphier BL"

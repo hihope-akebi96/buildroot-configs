@@ -1,0 +1,2 @@
+
+source "$BR2_EXTERNAL_BSP_PATH/boot/uniphier-bl/Config.in"

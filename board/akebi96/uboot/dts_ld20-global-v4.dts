@@ -1,0 +1,19 @@
+/*
+ * Additional Device Tree Source for UniPhier akebi96 Board
+ *
+ * Copyright (C) 2019 Socionext Inc.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+	X11
+ */
+
+#include "uniphier-ld20-global-v4.dts"
+
+/ {
+	model = "Akebi96 Board";
+
+	atf_bl31_reserved: memory@81000000 {
+		reg = <0 0x81000000 0 0x00080000>;
+		no-map;
+	};
+
+};

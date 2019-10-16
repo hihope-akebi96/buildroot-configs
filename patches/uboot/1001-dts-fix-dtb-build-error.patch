@@ -1,0 +1,25 @@
+From 46de7f3c586917f0d834020ceb88efc0dffc4b16 Mon Sep 17 00:00:00 2001
+From: "sato.shunji" <sato.shunji@socionext.com>
+Date: Tue, 23 Apr 2019 09:58:26 +0900
+Subject: [PATCH] dts : fix dtb build error
+
+---
+ arch/arm/dts/Makefile | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 3000e0a..37f38df 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -1,5 +1,8 @@
+ # SPDX-License-Identifier: GPL-2.0+
+ 
++# for akebi96
++dtb-y += dts_ld20-global-v4.dtb
++
+ dtb-$(CONFIG_TARGET_SMARTWEB) += at91sam9260-smartweb.dtb
+ dtb-$(CONFIG_TARGET_TAURUS) += at91sam9g20-taurus.dtb
+ dtb-$(CONFIG_TARGET_CORVUS) += at91sam9g45-corvus.dtb
+-- 
+2.7.4
+

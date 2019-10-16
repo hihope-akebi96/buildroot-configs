@@ -1,0 +1,34 @@
+From 92b5c3c549208787a0dbf1d3c9e263195a471479 Mon Sep 17 00:00:00 2001
+From: "sato.shunji" <sato.shunji@socionext.com>
+Date: Mon, 22 Apr 2019 19:13:53 +0900
+Subject: [PATCH] drivers : gpu : support mali driver
+
+---
+ drivers/Kconfig      | 2 ++
+ drivers/gpu/Makefile | 1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/Kconfig b/drivers/Kconfig
+index 63baceb..b78594c 100644
+--- a/drivers/Kconfig
++++ b/drivers/Kconfig
+@@ -200,4 +200,6 @@ source "drivers/fpga/Kconfig"
+ 
+ source "drivers/tee/Kconfig"
+ 
++source "drivers/gpu/arm/Kconfig"
++
+ endmenu
+diff --git a/drivers/gpu/Makefile b/drivers/gpu/Makefile
+index e9ed439..648a17e 100644
+--- a/drivers/gpu/Makefile
++++ b/drivers/gpu/Makefile
+@@ -3,4 +3,5 @@
+ # to ensure this currently.
+ obj-$(CONFIG_TEGRA_HOST1X)	+= host1x/
+ obj-y			+= drm/ vga/
++obj-y			+= arm/
+ obj-$(CONFIG_IMX_IPUV3_CORE)	+= ipu-v3/
+-- 
+2.7.4
+

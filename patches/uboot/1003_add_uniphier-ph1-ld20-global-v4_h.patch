@@ -1,0 +1,164 @@
+diff --git a/include/configs/uniphier-ph1-ld20-global-v4.h b/include/configs/uniphier-ph1-ld20-global-v4.h
+new file mode 100644
+index 0000000..5dd7558
+--- /dev/null
++++ b/include/configs/uniphier-ph1-ld20-global-v4.h
+@@ -0,0 +1,158 @@
++#ifndef __UNIPHIER_PH1_LD20_GLOBAL_V4_ANDROIDNG_H__
++#define __UNIPHIER_PH1_LD20_GLOBAL_V4_ANDROIDNG_H__
++
++/* Include the unphier header */
++#include <configs/uniphier.h>
++
++/* for EXT4 */
++// #define CONFIG_CMD_EXT4
++
++/* Enable nulldev */
++#define CONFIG_SYS_DEVICE_NULLDEV
++
++/* Redefine saveenv area */
++#undef CONFIG_ENV_OFFSET
++#define CONFIG_ENV_OFFSET			0x180000
++
++/* Environment area size */
++#undef CONFIG_ENV_SIZE
++#define CONFIG_ENV_SIZE				0x4000	/* 16K */
++
++/* Extend heap size for AVB2 */
++#undef CONFIG_SYS_MALLOC_LEN
++#define CONFIG_SYS_MALLOC_LEN			(64 * 1024 * 1024)
++
++/* for Verified Boot */
++#ifdef CONFIG_FIT
++
++#else /* CONFIG_FIT */
++#undef LINUXBOOT_ENV_SETTINGS
++#undef KERNEL_ADDR_R
++#undef KERNEL_SIZE
++#undef RAMDISK_ADDR
++
++#undef CONFIG_BOOTFILE
++#define CONFIG_BOOTFILE         "Image.gz"
++
++#define KERNEL_ADDR_R           "kernel_addr_r=0xb7080000\0"
++#define KERNEL_SIZE             "kernel_size=0x00006000\0"
++#define RAMDISK_ADDR            "ramdisk_addr=0x00026090\0"
++#define RAMDISK_SIZE            "ramdisk_size=0x00004088\0"
++#define RECOVERY_ADDR           "recovery_addr=0x0002a118\0"
++#define RECOVERY_SIZE           "recovery_size=0x00009f78\0"
++#define FDT_ADDR                "fdt_addr=0x00006050\0"
++#define FDT_SIZE                "fdt_size=0x00000040\0"
++#define BSP_RAMDISK_ADDR        "bsp_ramdisk_addr=0x00006090\0"
++#define BSP_RAMDISK_SIZE        "bsp_ramdisk_size=0x00020000\0"
++
++#define STM_ADDR_R              "stm_addr_r=0xb7000000\0"
++#define STM_ADDR                "stm_addr=0x00000800\0"
++#define STM_SIZE                "stm_size=0x00000300\0"
++#define STMBECOM0               "stmbecom0=0x5f800030\0"
++#define STMBECOM1               "stmbecom1=0x5f800034\0"
++#define ROMRSV3                 "romrsv3=0x5980120c\0"
++#define PINMON0                 "pinmon0=0x5f900100\0"
++
++#define BOOTARGS_COMMON "firmware_class.path=/vendor/etc/firmware androidboot.hardware=sc1401aj1 uio_pdrv_genirq.of_id=generic-uio rootwait init=/init"
++#define ADD_BOOTARGS    "setenv bootargs $bootargs "BOOTARGS_COMMON" root=/dev/mmcblk0p4"
++#define ADD_RECOVERY_BOOTARGS   "setenv bootargs $bootargs "BOOTARGS_COMMON
++
++#define ADD_AVB_BOOTARGS    "setenv bootargs $bootargs \"$avb_bootargs\" "BOOTARGS_COMMON
++#define AVB_CMD         "avb init 0 && avb verify &&"
++
++#define LINUXBOOT_ENV_SETTINGS \
++    FDT_ADDR \
++    "fdt_addr_r=0x84100000\0" \
++    FDT_SIZE \
++    "kernel_addr=0x00000050\0" \
++    KERNEL_ADDR_R \
++    KERNEL_SIZE \
++    RAMDISK_ADDR \
++    "ramdisk_addr_r=0xe8800000\0" \
++    RAMDISK_SIZE \
++    "ramdisk_file=rootfs.cpio.uboot\0" \
++    RECOVERY_ADDR \
++    RECOVERY_SIZE \
++    BSP_RAMDISK_ADDR \
++    BSP_RAMDISK_SIZE \
++    STM_ADDR_R \
++    STM_ADDR \
++    STM_SIZE \
++    STMBECOM0 \
++    STMBECOM1 \
++    ROMRSV3 \
++    PINMON0 \
++    "stm_boot_done=0\0" \
++    "bsp=run emmcboot_bsp\0" \
++    "update_from_usb=usb start && fatload usb 0:1 0x8c000000 /usb/usb_update && source 0x8c000000\0"\
++    "snapset=usb start && fatload usb 0:1 0x8c000000 /snapshot/snap_update && source 0x8c000000\0"\
++    "boot_common=setexpr bootm_low $kernel_addr_r '&' fe000000 &&" \
++        LINUXBOOT_CMD " $kernel_addr_r - $fdt_addr_r\0" \
++    "boot_recovery=setexpr bootm_low $kernel_addr_r '&' fe000000 &&" \
++        LINUXBOOT_CMD " $kernel_addr_r $ramdisk_addr_r $fdt_addr_r\0" \
++    "stm_boot=setexpr.l regval *$pinmon0 '&' 0x08000000 &&" \
++        "if test $regval -eq 0 ; then " \
++            "setexpr.w val *$romrsv3 '&' 0x300 &&" \
++            "if test $val -eq 0 ; then " \
++                "mmc dev 0 2 && mmc read $stm_addr_r $stm_addr $stm_size &&"\
++                "mw.l $stmbecom1 $stm_addr_r && mw.l $stmbecom0 0x0000b6a5 &&" \
++                "setenv val 0 &&" \
++                "while test $val -eq 0 ; "\
++                    "do setexpr.w val *$romrsv3 '&' 0x100 ; done ;" \
++                "setexpr.w val $romrsv3 '|' 0x200 &&" \
++                "mw.w $romrsv3 $val &&" \
++                "mmc dev 0 0 &&" \
++                "mw.l $stmbecom1 0 && mw.l $stmbecom0 0 &&" \
++                "setenv stm_boot_done 1 ;" \
++            "fi ;" \
++        "fi\0" \
++    "emmcboot_bsp=setenv ramdisk_addr $bsp_ramdisk_addr &&" \
++        "setenv ramdisk_size $bsp_ramdisk_size &&" \
++        "run stm_boot ; "\
++        "mmc read 0x8c000000 $kernel_addr $kernel_size &&" \
++        "unzip 0x8c000000 $kernel_addr_r &&" \
++        "mmc read $ramdisk_addr_r $ramdisk_addr $ramdisk_size &&" \
++        "mmc read $fdt_addr_r $fdt_addr $fdt_size &&" \
++        ADD_RECOVERY_BOOTARGS" &&" \
++        "run boot_recovery\0" \
++    "emmcboot_org=run stm_boot ; "\
++        "mmc read 0x8c000000 $kernel_addr $kernel_size &&" \
++        "unzip 0x8c000000 $kernel_addr_r &&" \
++        "ext4size mmc 0:7 recovery/command &&" \
++        "if test $filesize -ne 0 ; then " \
++            "echo recovery mode ; " \
++            "setenv ramdisk_addr $recovery_addr ; " \
++            "setenv ramdisk_size $recovery_size ; " \
++            "mmc read $ramdisk_addr_r $ramdisk_addr $ramdisk_size &&" \
++            "mmc read $fdt_addr_r $fdt_addr $fdt_size &&" \
++            ADD_RECOVERY_BOOTARGS" &&" \
++            "run boot_recovery ;" \
++        "fi ;" \
++        "mmc read $fdt_addr_r $fdt_addr $fdt_size &&" \
++        ADD_BOOTARGS" &&" \
++        "run boot_common\0" \
++    "tftpboot=tftpboot 0x8c000000 $bootfile &&" \
++        "unzip 0x8c000000 $kernel_addr_r &&" \
++        "tftpboot $ramdisk_addr_r $ramdisk_file &&" \
++        "tftpboot $fdt_addr_r $fdtfile &&" \
++        "run boot_common\0" \
++    "__nfsboot=tftpboot 0x8c000000 $bootfile &&" \
++        "unzip 0x8c000000 $kernel_addr_r &&" \
++        "tftpboot $fdt_addr_r $fdtfile &&" \
++        "setenv ramdisk_addr_r - &&" \
++        "run boot_common\0" \
++    "emmcboot=run stm_boot ; " \
++         \
++        "ext4size mmc 0:7 recovery/command &&" \
++        "if test $filesize -ne 0 ; then " \
++            "echo recovery mode ; " \
++            "setenv ramdisk_addr $recovery_addr ; " \
++            "setenv ramdisk_size $recovery_size ; " \
++        "fi ;" \
++        "mmc read $ramdisk_addr_r $ramdisk_addr $ramdisk_size &&" \
++        "mmc read $fdt_addr_r $fdt_addr $fdt_size &&" \
++        ADD_BOOTARGS" &&" \
++        "setexpr bootm_low $kernel_addr_r '&' fe000000 && bootm $ramdisk_addr_r $ramdisk_addr_r $fdt_addr_r\0"
++#endif /* CONFIG_FIT */
++
++#endif /* __UNIPHIER_PH1_LD20_GLOBAL_V4_ANDROIDNG_H__ */

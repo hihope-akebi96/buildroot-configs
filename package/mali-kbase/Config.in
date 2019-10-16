@@ -1,0 +1,4 @@
+
+config BR2_PACKAGE_MALI_KBASE
+    bool "Mali-midgard kernel driver"
+    depends on BR2_LINUX_KERNEL

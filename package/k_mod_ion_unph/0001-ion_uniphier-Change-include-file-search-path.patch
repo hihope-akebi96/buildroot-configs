@@ -1,0 +1,45 @@
+From 63dd7008e4783210c76f52e4f4bb89fafbd6288f Mon Sep 17 00:00:00 2001
+From: "sato.shunji" <sato.shunji@socionext.com>
+Date: Tue, 29 Jan 2019 11:22:02 +0900
+Subject: [PATCH] ion_uniphier : Change include file search path
+
+---
+ ion_uniphier/ion_uniphier_core.c | 6 +++---
+ ion_uniphier/ion_uniphier_pxs2.c | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/ion_uniphier/ion_uniphier_core.c b/ion_uniphier/ion_uniphier_core.c
+index 30fff00..ea20e73 100644
+--- a/ion_uniphier/ion_uniphier_core.c
++++ b/ion_uniphier/ion_uniphier_core.c
+@@ -35,9 +35,9 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/of.h>
+ 
+-#include <ion/ion.h>
+-#include <ion/ion_priv.h>
+-#include <ion_of.h>
++#include "ion/ion.h"
++#include "ion/ion_priv.h"
++#include "ion_of.h"
+ 
+ #include "ion_uniphier_core.h"
+ #include "uapi/ion_uniphier.h"
+diff --git a/ion_uniphier/ion_uniphier_pxs2.c b/ion_uniphier/ion_uniphier_pxs2.c
+index 0e40f47..add515e 100644
+--- a/ion_uniphier/ion_uniphier_pxs2.c
++++ b/ion_uniphier/ion_uniphier_pxs2.c
+@@ -26,8 +26,8 @@
+ #include <linux/init.h>
+ #include <linux/platform_device.h>
+ 
+-#include <ion/ion.h>
+-#include <ion/ion_priv.h>
++#include "ion/ion.h"
++#include "ion/ion_priv.h"
+ 
+ #include "ion_uniphier_core.h"
+ 
+-- 
+2.7.4
+

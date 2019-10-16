@@ -1,0 +1,36 @@
+From d450aabbfb6b01e7012432688134ade151514bef Mon Sep 17 00:00:00 2001
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Date: Tue, 4 Jun 2019 10:26:30 +0900
+Subject: [PATCH 14/16] ARM: lib: image.c: Update local modifications
+
+Update some differences to sync with local modifications.
+
+Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+---
+ arch/arm/lib/image.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/lib/image.c b/arch/arm/lib/image.c
+index 699bf44..4379705 100644
+--- a/arch/arm/lib/image.c
++++ b/arch/arm/lib/image.c
+@@ -64,11 +64,15 @@ int booti_setup(ulong image, ulong *relocated_addr, ulong *size,
+ 	 * images->ep.  Otherwise, relocate the image to the base of RAM
+ 	 * since memory below it is not accessible via the linear mapping.
+ 	 */
++	/* Hack for UniPhier: always avoid relacation to RAM base */
++#if 1
++	dst = image - text_offset;
++#else
+ 	if (!force_reloc && (le64_to_cpu(ih->flags) & BIT(3)))
+ 		dst = image - text_offset;
+ 	else
+ 		dst = gd->bd->bi_dram[0].start;
+-
++#endif
+ 	*relocated_addr = ALIGN(dst, SZ_2M) + text_offset;
+ 
+ 	unmap_sysmem(ih);
+-- 
+2.7.4
+

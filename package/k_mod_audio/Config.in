@@ -1,0 +1,4 @@
+
+config BR2_PACKAGE_K_MOD_AUDIO
+    bool "ALSA driver"
+    depends on BR2_LINUX_KERNEL

@@ -1,0 +1,37 @@
+From a0248bd03f8723d495c54297fadb6e1a1997329d Mon Sep 17 00:00:00 2001
+From: "sato.shunji" <sato.shunji@socionext.com>
+Date: Tue, 29 Jan 2019 11:23:17 +0900
+Subject: [PATCH] vocdrv_ld20 : Add include path for voc_vout
+
+---
+ vocdrv_ld20/Kbuild   | 1 +
+ vocdrv_ld20/Makefile | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/vocdrv_ld20/Kbuild b/vocdrv_ld20/Kbuild
+index 34eeabb..309a95d 100644
+--- a/vocdrv_ld20/Kbuild
++++ b/vocdrv_ld20/Kbuild
+@@ -4,6 +4,7 @@ CONFIG_UNIPHIER_VOCDRV_DEBUG ?= y
+ ccflags-$(CONFIG_UNIPHIER_VOCDRV) += -DDEBUG
+ ccflags-n += -DVOCD_LD11 -DVOCLIB_SLD11
+ ccflags-y += -DDYNAMIC_DEVICE
++ccflags-y += -I$(LDINC)
+ 
+ vocdrv-ld20-objs:= vocd_driver.o \
+ 		voc_intr/src/voclib_intr.o \
+diff --git a/vocdrv_ld20/Makefile b/vocdrv_ld20/Makefile
+index 34bba5d..e468b76 100644
+--- a/vocdrv_ld20/Makefile
++++ b/vocdrv_ld20/Makefile
+@@ -15,6 +15,7 @@ INSTALL ?= install
+ KERNEL_DIR ?= $(MAKETOP)/usr/src/linux
+ MFLAGS := ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNEL_DIR) M=$(CURDIR) V=$(V)
+ MFLAGS += INSTALL_MOD_PATH=$(MAKETOP)
++MFLAGS += LDINC=$(CURDIR)
+ 
+ INSTALL_HEADER1_DIR := $(MAKETOP)/usr/include/asm
+ INSTALL_HEADER2_DIR := $(KERNEL_DIR)/arch/$(ARCH)/include/generated/uapi/asm
+-- 
+2.7.4
+

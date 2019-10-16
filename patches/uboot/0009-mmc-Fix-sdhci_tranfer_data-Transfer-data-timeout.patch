@@ -1,0 +1,35 @@
+From d8da012e4c9679526a7529c0ac88a92379001465 Mon Sep 17 00:00:00 2001
+From: Hirayama Akio <hirayama.akio@socionext.com>
+Date: Tue, 19 Feb 2019 17:47:13 +0900
+Subject: [PATCH 09/16] mmc: Fix "sdhci_tranfer_data: Transfer data timeout"
+
+Signed-off-by: Hirayama Akio <hirayama.akio@socionext.com>
+---
+ drivers/mmc/rpmb.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/mmc/rpmb.c b/drivers/mmc/rpmb.c
+index 908f192..33371fe 100644
+--- a/drivers/mmc/rpmb.c
++++ b/drivers/mmc/rpmb.c
+@@ -103,7 +103,7 @@ static int mmc_rpmb_request(struct mmc *mmc, const struct s_rpmb *s,
+ 
+ 	cmd.cmdidx = MMC_CMD_WRITE_MULTIPLE_BLOCK;
+ 	cmd.cmdarg = 0;
+-	cmd.resp_type = MMC_RSP_R1b;
++	cmd.resp_type = MMC_RSP_R1;
+ 
+ 	data.src = (const char *)s;
+ 	data.blocks = 1;
+@@ -327,7 +327,7 @@ static int send_write_mult_block(struct mmc *mmc, const struct s_rpmb *frm,
+ {
+ 	struct mmc_cmd cmd = {
+ 		.cmdidx = MMC_CMD_WRITE_MULTIPLE_BLOCK,
+-		.resp_type = MMC_RSP_R1b,
++		.resp_type = MMC_RSP_R1,
+ 	};
+ 	struct mmc_data data = {
+ 		.src = (const void *)frm,
+-- 
+2.7.4
+

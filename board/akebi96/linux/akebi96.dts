@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+//
+// Additional Device Tree Source for UniPhier akebi96 Board
+//
+// Copyright (C) 2019 Socionext Inc.
+
+#include "socionext/uniphier-ph1-ld20-akebi96.dts"
+
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		atf_bl31_reserved: memory@81000000 {
+			reg = <0 0x81000000 0 0x00080000>;
+			no-map;
+		};
+
+		fb_reserved: memory@c0000000 {
+			reg = <0 0xc0000000 0 0x01000000>;
+			no-map;
+		};
+	};
+
+	framebuffer {
+		compatible = "simple-framebuffer";
+		/delete-property/ reg;
+		memory-region = <&fb_reserved>;
+		width = <1920>;
+		height = <1080>;
+		stride = <7680>;
+		format = "a8r8g8b8";
+	};
+
+	firmware {
+		android {
+			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,recovery,system,vendor,dtb";
+			};
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev = "/dev/block/platform/soc/5a000000.sdhc/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro";
+					fsmgr_flags = "wait";
+				};
+			};
+		};
+	};
+
+};
+
+&soc {
+	ion {
+		compatible = "socionext,ion-uniphier";
+
+		ion-fb-heap {
+			compatible = "socionext,fb-heap", "linux,ion-heap-carveout";
+			memory-region = <&fb_reserved>;
+		};
+		ion-system-heap {
+			compatible = "socionext,system-heap", "linux,ion-heap-system";
+			heap_type = <0>;
+		};
+	};
+
+	voc: voc@5f000000 {
+		compatible = "socionext,uniphier-ld20-voc";
+		reg-names = "voc_voc", "voc_sg2", "voc_lvl","voc_afbcd";
+		reg =	<0x5F000000 0x800000>,
+			<0x55000000 0x1000>,
+			<0x5983A000 0x2000>,
+			<0x6E230000 0x1000>;
+		interrupt-names =	"voc_vout7",
+					"voc_vout5",
+					"voc_vout4",
+					"voc_vout3",
+					"voc_vout2",
+					"voc_vout1";
+		interrupts =	<0 117 4>,
+				<0 115 4>,
+				<0 114 4>,
+				<0 113 4>,
+				<0 112 4>,
+				<0 109 4>;
+		socionext,soc-glue = <&soc_glue>;
+		socionext,sysctrl = <&sysctrl>;
+	};
+};

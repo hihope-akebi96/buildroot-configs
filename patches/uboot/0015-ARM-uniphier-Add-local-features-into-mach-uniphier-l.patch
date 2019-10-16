@@ -1,0 +1,1122 @@
+From 74c764cce1a72139339b0fd974971a86545b17ca Mon Sep 17 00:00:00 2001
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Date: Tue, 4 Jun 2019 10:27:48 +0900
+Subject: [PATCH 15/16] ARM: uniphier: Add local features into
+ mach-uniphier/local/
+
+- ARM: uniphier: evacuate local code into mach-uniphier/local/ directory
+- ARM: uniphier: move local modification to local directory
+
+Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+---
+ arch/arm/mach-uniphier/Kconfig                  |   3 +
+ arch/arm/mach-uniphier/Makefile                 |   1 +
+ arch/arm/mach-uniphier/local/Kconfig            |   6 +
+ arch/arm/mach-uniphier/local/Makefile           |   5 +
+ arch/arm/mach-uniphier/local/local-init.c       |  79 ++++++
+ arch/arm/mach-uniphier/local/local-init.h       |  18 ++
+ arch/arm/mach-uniphier/local/local-ld11.c       | 136 ++++++++++
+ arch/arm/mach-uniphier/local/local-ld20.c       | 126 +++++++++
+ arch/arm/mach-uniphier/local/local-pxs3.c       |  34 +++
+ arch/arm/mach-uniphier/local/umc-funcsel-ld11.c | 243 +++++++++++++++++
+ arch/arm/mach-uniphier/local/umc-funcsel-ld20.c | 339 ++++++++++++++++++++++++
+ arch/arm/mach-uniphier/local/umc-funcsel-pxs3.c |  14 +
+ 12 files changed, 1004 insertions(+)
+ create mode 100644 arch/arm/mach-uniphier/local/Kconfig
+ create mode 100644 arch/arm/mach-uniphier/local/Makefile
+ create mode 100644 arch/arm/mach-uniphier/local/local-init.c
+ create mode 100644 arch/arm/mach-uniphier/local/local-init.h
+ create mode 100644 arch/arm/mach-uniphier/local/local-ld11.c
+ create mode 100644 arch/arm/mach-uniphier/local/local-ld20.c
+ create mode 100644 arch/arm/mach-uniphier/local/local-pxs3.c
+ create mode 100644 arch/arm/mach-uniphier/local/umc-funcsel-ld11.c
+ create mode 100644 arch/arm/mach-uniphier/local/umc-funcsel-ld20.c
+ create mode 100644 arch/arm/mach-uniphier/local/umc-funcsel-pxs3.c
+
+diff --git a/arch/arm/mach-uniphier/Kconfig b/arch/arm/mach-uniphier/Kconfig
+index bfb445a..abc2fbc 100644
+--- a/arch/arm/mach-uniphier/Kconfig
++++ b/arch/arm/mach-uniphier/Kconfig
+@@ -119,4 +119,7 @@ config CMD_DDRMPHY_DUMP
+ 
+ config SYS_SOC
+ 	default "uniphier-v7" if ARCH_UNIPHIER_LD4_SLD8 || ARCH_UNIPHIER_V7_MULTI
++
++source "arch/arm/mach-uniphier/local/Kconfig"
++
+ endif
+diff --git a/arch/arm/mach-uniphier/Makefile b/arch/arm/mach-uniphier/Makefile
+index d0c39d42..fc773a4 100644
+--- a/arch/arm/mach-uniphier/Makefile
++++ b/arch/arm/mach-uniphier/Makefile
+@@ -22,6 +22,7 @@ obj-$(CONFIG_MICRO_SUPPORT_CARD) += sbc/ micro-support-card.o
+ obj-y += pinctrl-glue.o
+ obj-$(CONFIG_MMC) += mmc-first-dev.o
+ obj-y += fdt-fixup.o
++obj-y += local/
+ 
+ endif
+ 
+diff --git a/arch/arm/mach-uniphier/local/Kconfig b/arch/arm/mach-uniphier/local/Kconfig
+new file mode 100644
+index 0000000..7c6ce71
+--- /dev/null
++++ b/arch/arm/mach-uniphier/local/Kconfig
+@@ -0,0 +1,6 @@
++config SYS_CONFIG_NAME
++	string "Board configuration name"
++	help
++	  This option contains base name of board header file.
++	  The header file include/configs/<CONFIG_SYS_CONFIG_NAME>.h
++	  will be used for board configuration.
+diff --git a/arch/arm/mach-uniphier/local/Makefile b/arch/arm/mach-uniphier/local/Makefile
+new file mode 100644
+index 0000000..e6b00f4
+--- /dev/null
++++ b/arch/arm/mach-uniphier/local/Makefile
+@@ -0,0 +1,5 @@
++obj-y += local-init.o
++
++obj-$(CONFIG_ARCH_UNIPHIER_LD11) += local-ld11.o umc-funcsel-ld11.o
++obj-$(CONFIG_ARCH_UNIPHIER_LD20) += local-ld20.o umc-funcsel-ld20.o
++obj-$(CONFIG_ARCH_UNIPHIER_PXS3) += local-pxs3.o umc-funcsel-pxs3.o
+diff --git a/arch/arm/mach-uniphier/local/local-init.c b/arch/arm/mach-uniphier/local/local-init.c
+new file mode 100644
+index 0000000..2809a65
+--- /dev/null
++++ b/arch/arm/mach-uniphier/local/local-init.c
+@@ -0,0 +1,79 @@
++/*
++ * Copyright (C) 2016 Socionext Inc.
++ *
++ * SPDX-License-Identifier:	GPL-2.0+
++ */
++
++#include <common.h>
++#include <linux/libfdt.h>
++#include <linux/io.h>
++
++#include "../soc-info.h"
++#include "local-init.h"
++
++DECLARE_GLOBAL_DATA_PTR;
++
++/*
++ * Unneeded for the latest kernel.
++ * Ugly workaround here to support Linux 4.4 locally used in Socionext.
++ */
++static void uniphier_setup_xirq(void)
++{
++	const void *fdt = gd->fdt_blob;
++	int soc_node, aidet_node;
++	const fdt32_t *val;
++	unsigned long aidet_base;
++	u32 tmp;
++
++	soc_node = fdt_path_offset(fdt, "/soc");
++	if (soc_node < 0)
++		return;
++
++	aidet_node = fdt_subnode_offset_namelen(fdt, soc_node, "aidet", 5);
++	if (aidet_node < 0)
++		return;
++
++	val = fdt_getprop(fdt, aidet_node, "reg", NULL);
++	if (!val)
++		return;
++
++	aidet_base = fdt32_to_cpu(*val);
++
++	tmp = readl(aidet_base + 8);	/* AIDET DETCONFR2 */
++	tmp |= 0x00ff0000;		/* Set XIRQ0-7 low active */
++	writel(tmp, aidet_base + 8);
++
++	tmp = readl(0x55000090);	/* IRQCTL */
++	tmp |= 0x000000ff;
++	writel(tmp, 0x55000090);
++}
++
++int board_early_init_r(void)
++{
++	switch (uniphier_get_soc_id()) {
++#if defined(CONFIG_ARCH_UNIPHIER_LD11)
++	case UNIPHIER_LD11_ID:
++		uniphier_ld11_local_init();	/* LD11 specific */
++		uniphier_ld11_umc_funcsel();
++		break;
++#endif
++#if defined(CONFIG_ARCH_UNIPHIER_LD20)
++	case UNIPHIER_LD20_ID:
++		uniphier_ld20_local_init();	/* LD20 specific */
++		uniphier_ld20_umc_funcsel();
++		break;
++#endif
++#if defined(CONFIG_ARCH_UNIPHIER_PXS3)
++	case UNIPHIER_PXS3_ID:
++		uniphier_pxs3_local_init();	/* PXs3 specific */
++		uniphier_pxs3_umc_funcsel();
++		break;
++#endif
++	default:
++		break;
++	}
++
++	uniphier_setup_xirq();
++
++	return 0;
++}
+diff --git a/arch/arm/mach-uniphier/local/local-init.h b/arch/arm/mach-uniphier/local/local-init.h
+new file mode 100644
+index 0000000..3c3591a
+--- /dev/null
++++ b/arch/arm/mach-uniphier/local/local-init.h
+@@ -0,0 +1,18 @@
++/*
++ * Copyright (C) 2016 Socionext Inc.
++ *
++ * SPDX-License-Identifier:	GPL-2.0+
++ */
++
++#ifndef UNIPHIER_LOCAL_INIT_H
++#define UNIPHIER_LOCAL_INIT_H
++
++void uniphier_ld11_local_init(void);
++void uniphier_ld20_local_init(void);
++void uniphier_pxs3_local_init(void);
++
++void uniphier_ld11_umc_funcsel(void);
++void uniphier_ld20_umc_funcsel(void);
++void uniphier_pxs3_umc_funcsel(void);
++
++#endif /* UNIPHIER_LOCAL_INIT_H */
+diff --git a/arch/arm/mach-uniphier/local/local-ld11.c b/arch/arm/mach-uniphier/local/local-ld11.c
+new file mode 100644
+index 0000000..63bf9db
+--- /dev/null
++++ b/arch/arm/mach-uniphier/local/local-ld11.c
+@@ -0,0 +1,136 @@
++/*
++ * Copyright (C) 2016 Socionext Inc.
++ *
++ * SPDX-License-Identifier:	GPL-2.0+
++ */
++
++#include <common.h>
++#include <linux/io.h>
++#include <linux/kernel.h>
++
++#include "../sc64-regs.h"
++#include "../sg-regs.h"
++#include "local-init.h"
++
++#define SC_DSP_GEARST		(SC_BASE_ADDR | 0x8100)
++#define SC_DSP_GEARSET		(SC_BASE_ADDR | 0x8104)
++#define SC_DSP_GEARUPD		(SC_BASE_ADDR | 0x8108)
++#define   SC_GEARUPD			(1 << 0)
++
++struct clkrst_data {
++	unsigned long address;
++	u32 data;
++};
++
++static const struct clkrst_data clock_data[] = {
++	{ SC_CLKCTRL,  0x00000001 },
++	{ SC_CLKCTRL3, 0x00000117 },
++	{ SC_CLKCTRL4, 0x000037cf },
++	{ SC_CLKCTRL5, 0x0000004f },
++	{ SC_CLKCTRL6, 0x0000010b },
++	{ SC_CLKCTRL7, 0x00000003 }
++};
++
++static const struct clkrst_data reset_data[] = {
++	{ SC_RSTCTRL,  0x00000001 },
++	{ SC_RSTCTRL3, 0x000f0137 },
++	{ SC_RSTCTRL4, 0x000003cf },
++	{ SC_RSTCTRL5, 0x0000004f },
++	{ SC_RSTCTRL6, 0x0000010b },
++	{ SC_RSTCTRL7, 0x00000003 }
++};
++
++/* local init code for LD11 */
++void uniphier_ld11_local_init(void)
++{
++	int i;
++
++	writel(0x00000000, 0x5F801014);	/* PINCTRL05 */
++	writel(0x00000000, 0x5F801018);	/* PINCTRL06 */
++	writel(0x00000000, 0x5F80101C);	/* PINCTRL07 */
++	writel(0x00000000, 0x5F801020);	/* PINCTRL08 */
++	writel(0x00000000, 0x5F801024);	/* PINCTRL09 */
++	writel(0x00000000, 0x5F801028);	/* PINCTRL10 */
++	writel(0x00000000, 0x5F80102C);	/* PINCTRL11 */
++	writel(0x0F0F0000, 0x5F801030);	/* PINCTRL12 */
++	writel(0x00000000, 0x5F801034);	/* PINCTRL13 */
++	writel(0x01010F0F, 0x5F801038);	/* PINCTRL14 */
++	writel(0x00000000, 0x5F80103C);	/* PINCTRL15 */
++	writel(0x00000000, 0x5F801040);	/* PINCTRL16 */
++	writel(0x02020200, 0x5F801044);	/* PINCTRL17 */
++	writel(0x0F0F0202, 0x5F801048);	/* PINCTRL18 */
++	writel(0x0F0F0F0F, 0x5F80104C);	/* PINCTRL19 */
++	writel(0x0F0F0F0F, 0x5F801050);	/* PINCTRL20 */
++	writel(0x0F0F0F0F, 0x5F801054);	/* PINCTRL21 */
++	writel(0x0F0F0F0F, 0x5F801058);	/* PINCTRL22 */
++	writel(0x0F0F0F0F, 0x5F80105C);	/* PINCTRL23 */
++	writel(0x0F0F0F0F, 0x5F801060);	/* PINCTRL24 */
++	writel(0x0F0F0F0F, 0x5F801064);	/* PINCTRL25 */
++	writel(0x0F0F0F0F, 0x5F801068);	/* PINCTRL26 */
++	writel(0x0F0F0F0F, 0x5F80106C);	/* PINCTRL27 */
++	writel(0x0F0F0F0F, 0x5F801070);	/* PINCTRL28 */
++	writel(0x03030303, 0x5F801074);	/* PINCTRL29 */
++	writel(0x03030303, 0x5F801078);	/* PINCTRL30 */
++	writel(0x0F0F0F0F, 0x5F80107C);	/* PINCTRL31 */
++	writel(0x0F0F0F0F, 0x5F801080);	/* PINCTRL32 */
++	writel(0x000F0F0F, 0x5F801084);	/* PINCTRL33 */
++	writel(0x00000000, 0x5F801088);	/* PINCTRL34 */
++	writel(0x0F0F0F00, 0x5F80108C);	/* PINCTRL35 */
++	writel(0x000E0F0E, 0x5F801090);	/* PINCTRL36 */
++	writel(0x0F0F0E0F, 0x5F801094);	/* PINCTRL37 */
++	writel(0x0F0E0E0F, 0x5F801098);	/* PINCTRL38 */
++	writel(0x0F000F0F, 0x5F80109C);	/* PINCTRL39 */
++	writel(0x0000000F, 0x5F8010A0);	/* PINCTRL40 */
++	writel(0x00000000, 0x5F8010A4);	/* PINCTRL41 */
++
++	writel(0x3FC3FC79, 0x5F801A00);	/* PUPDCTRL0 */
++	writel(0x0CC00000, 0x5F801A04);	/* PUPDCTRL1 */
++	writel(0x00000000, 0x5F801A08);	/* PUPDCTRL2 */
++	writel(0x0FF00000, 0x5F801A0C);	/* PUPDCTRL3 */
++	writel(0x02050000, 0x5F801A10);	/* PUPDCTRL4 */
++	writel(0x00000000, 0x5F801A14);	/* PUPDCTRL5 */
++
++	writel(0x00000003, 0x5F801C04);	/* OECTRL */
++
++	writel(0x3FFFFC39, 0x5F801D00);	/* IECTRL0 */
++	writel(0x1CC3C000, 0x5F801D04);	/* IECTRL1 */
++	writel(0x000007E0, 0x5F801D08);	/* IECTRL2 */
++	writel(0x0FF00000, 0x5F801D0C);	/* IECTRL3 */
++	writel(0x77BFFF80, 0x5F801D10);	/* IECTRL4 */
++	writel(0x00000000, 0x5F801D14);	/* IECTRL5 */
++
++	writel(0x00000000, 0x55000030);	/* P5IOD */
++	writel(0x0000007F, 0x55000034);	/* P5DIR */
++	writel(0x00000000, 0x550000C8);	/* P22IOD */
++	writel(0x000000F3, 0x550000CC);	/* P22DIR */
++	writel(0x00000000, 0x550000D0);	/* P23IOD */
++	writel(0x000000CD, 0x550000D4);	/* P23DIR */
++	writel(0x00000008, 0x550000D8);	/* P24IOD */
++	writel(0x000000D5, 0x550000DC);	/* P24DIR */
++
++	writel(0x00002431, 0x55000090);	/* IRQCTRL */
++	writel(0x00000000, 0x55000094);	/* IRQSEL */
++
++	/*
++	 * clocks must be enabled before deasserting resets
++	 * (commit 311e9db214b3a9527d2ebf1806da319d51448499 of sLD11 diag)
++	 */
++	for (i = 0; i < ARRAY_SIZE(clock_data); i++){
++		writel(clock_data[i].data, clock_data[i].address);
++		udelay(10);
++	}
++
++	for (i = 0; i < ARRAY_SIZE(reset_data); i++){
++		writel(reset_data[i].data, reset_data[i].address);
++		udelay(10);
++	}
++
++	/* Comment format:    PAD Name -> Function Name */
++	sg_set_pinsel(149, 14, 8, 4);	/* XIRQ0    -> XIRQ0 */
++	sg_set_iectrl(149);
++	sg_set_pinsel(153, 14, 8, 4);	/* XIRQ4    -> XIRQ4 */
++	sg_set_iectrl(153);
++
++	writel(0, SC_DSP_GEARSET);	/* Gear0: MPLL/2 */
++	writel(SC_GEARUPD, SC_DSP_GEARUPD);
++}
+diff --git a/arch/arm/mach-uniphier/local/local-ld20.c b/arch/arm/mach-uniphier/local/local-ld20.c
+new file mode 100644
+index 0000000..5cdc977
+--- /dev/null
++++ b/arch/arm/mach-uniphier/local/local-ld20.c
+@@ -0,0 +1,126 @@
++/*
++ * Copyright (C) 2016 Socionext Inc.
++ *
++ * SPDX-License-Identifier:	GPL-2.0+
++ */
++
++#include <common.h>
++#include <linux/io.h>
++#include <linux/kernel.h>
++
++#include "../sc64-regs.h"
++#include "../sg-regs.h"
++#include "local-init.h"
++
++struct clkrst_data {
++	unsigned long address;
++	u32 data;
++};
++
++static const struct clkrst_data reset_data[] = {
++	{ SC_RSTCTRL,  0x00000001 },
++	{ SC_RSTCTRL3, 0x000001f7 },
++	{ SC_RSTCTRL4, 0x0000f3ff },
++	{ SC_RSTCTRL5, 0x0000007f },
++	{ SC_RSTCTRL6, 0x0000010f },
++	{ SC_RSTCTRL7, 0x00010707 }
++};
++
++static const struct clkrst_data clock_data[] = {
++	{ SC_CLKCTRL,  0x00000001 },
++	{ SC_CLKCTRL3, 0x00000137 },
++	{ SC_CLKCTRL4, 0x0000f3ff },
++	{ SC_CLKCTRL5, 0x0000007f },
++	{ SC_CLKCTRL6, 0x0000010f },
++	{ SC_CLKCTRL7, 0x00010007 }
++};
++
++/* local init code for LD20 */
++void uniphier_ld20_local_init(void)
++{
++	int i;
++
++	writel(0x00000000, 0x5F801014);	/* PINCTRL05 */
++	writel(0x00000000, 0x5F801018);	/* PINCTRL06 */
++	writel(0x00000000, 0x5F80101C);	/* PINCTRL07 */
++	writel(0x00000000, 0x5F801020);	/* PINCTRL08 */
++	writel(0x00000000, 0x5F801024);	/* PINCTRL09 */
++	writel(0x00000000, 0x5F801028);	/* PINCTRL10 */
++	writel(0x00000000, 0x5F80102C);	/* PINCTRL11 */
++	writel(0x00000000, 0x5F801030);	/* PINCTRL12 */
++	writel(0x00000F0F, 0x5F801034);	/* PINCTRL13 */
++	writel(0x00000F0F, 0x5F801038);	/* PINCTRL14 */
++	writel(0x00000000, 0x5F80103C);	/* PINCTRL15 */
++	writel(0x00000000, 0x5F801040);	/* PINCTRL16 */
++	writel(0x02020200, 0x5F801044);	/* PINCTRL17 */
++	writel(0x0F0F0202, 0x5F801048);	/* PINCTRL18 */
++	writel(0x0F0F0F0F, 0x5F80104C);	/* PINCTRL19 */
++	writel(0x0F0F0F0F, 0x5F801050);	/* PINCTRL20 */
++	writel(0x0F0F0F0F, 0x5F801054);	/* PINCTRL21 */
++	writel(0x0F0F0F0F, 0x5F801058);	/* PINCTRL22 */
++	writel(0x0F0F0F0F, 0x5F80105C);	/* PINCTRL23 */
++	writel(0x0F0F0F0F, 0x5F801060);	/* PINCTRL24 */
++	writel(0x0F0F0F0F, 0x5F801064);	/* PINCTRL25 */
++	writel(0x0F0F0F0F, 0x5F801068);	/* PINCTRL26 */
++	writel(0x0F0F0F0F, 0x5F80106C);	/* PINCTRL27 */
++	writel(0x0F0F0F0F, 0x5F801070);	/* PINCTRL28 */
++	writel(0x0F0F0F0F, 0x5F801074);	/* PINCTRL29 */
++	writel(0x0F0F0F0F, 0x5F801078);	/* PINCTRL30 */
++	writel(0x03030303, 0x5F80107C);	/* PINCTRL31 */
++	writel(0x0303030F, 0x5F801080);	/* PINCTRL32 */
++	writel(0x000F0F03, 0x5F801084);	/* PINCTRL33 */
++	writel(0x00000000, 0x5F801088);	/* PINCTRL34 */
++	writel(0x000F0F00, 0x5F80108C);	/* PINCTRL35 */
++	writel(0x00000000, 0x5F801090);	/* PINCTRL36 */
++	writel(0x0F0F0E0F, 0x5F801094);	/* PINCTRL37 */
++	writel(0x0F0E0E0E, 0x5F801098);	/* PINCTRL38 */
++	writel(0x0E0F0F0F, 0x5F80109C);	/* PINCTRL39 */
++	writel(0x0F0F0E0F, 0x5F8010A0);	/* PINCTRL40 */
++	writel(0x0F0F0F0F, 0x5F8010A4);	/* PINCTRL41 */
++	writel(0x0F0F0F0F, 0x5F8010A8);	/* PINCTRL42 */
++	writel(0x0F0F0F0F, 0x5F8010AC);	/* PINCTRL43 */
++
++	writel(0x3FC3FC79, 0x5F801A00);	/* PUPDCTRL0 */
++	writel(0x0CC00000, 0x5F801A04);	/* PUPDCTRL1 */
++	writel(0x00000000, 0x5F801A08);	/* PUPDCTRL2 */
++	writel(0xF0000000, 0x5F801A0C);	/* PUPDCTRL3 */
++	writel(0x8200001E, 0x5F801A10);	/* PUPDCTRL4 */
++	writel(0x00000002, 0x5F801A14);	/* PUPDCTRL5 */
++
++	writel(0x00000003, 0x5F801C04);	/* OECTRL */
++
++	writel(0xFFFFFFFF, 0x5F801D00);	/* IECTRL0 */
++	writel(0xFCCFFFFF, 0x5F801D04);	/* IECTRL1 */
++	writel(0x000007FF, 0x5F801D08);	/* IECTRL2 */
++	writel(0xF0000000, 0x5F801D0C);	/* IECTRL3 */
++	writel(0xAF2F9F9E, 0x5F801D10);	/* IECTRL4 */
++	writel(0x00001F02, 0x5F801D14);	/* IECTRL5 */
++
++	writel(0x00000008, 0x55000008);	/* P0IOD */
++	writel(0x000000E0, 0x5500000C);	/* P0DIR */
++	writel(0x00000000, 0x550000D8);	/* P24IOD */
++	writel(0x000000FE, 0x550000DC);	/* P24DIR */
++
++	writel(0x00002431, 0x55000090);	/* IRQCTL */
++	writel(0x00000000, 0x55000094);	/* IRQSEL */
++
++	/*
++	 * clocks must be enabled before deasserting resets
++	 * (commit 2e5e1cc80a488bcb2e3482341c06d01578aa1246 of LD10 diag)
++	 */
++	for (i = 0; i < ARRAY_SIZE(clock_data); i++) {
++		writel(clock_data[i].data, clock_data[i].address);
++		udelay(10);
++	}
++
++	for (i = 0; i < ARRAY_SIZE(reset_data); i++) {
++		writel(reset_data[i].data, reset_data[i].address);
++		udelay(10);
++	}
++
++	/* Comment format:    PAD Name -> Function Name */
++	sg_set_pinsel(149, 14, 8, 4);	/* XIRQ0    -> XIRQ0 */
++	sg_set_iectrl(149);
++	sg_set_pinsel(153, 14, 8, 4);	/* XIRQ4    -> XIRQ4 */
++	sg_set_iectrl(153);
++}
+diff --git a/arch/arm/mach-uniphier/local/local-pxs3.c b/arch/arm/mach-uniphier/local/local-pxs3.c
+new file mode 100644
+index 0000000..5716b05
+--- /dev/null
++++ b/arch/arm/mach-uniphier/local/local-pxs3.c
+@@ -0,0 +1,34 @@
++/*
++ * Copyright (C) 2017 Socionext Inc.
++ *
++ * SPDX-License-Identifier:	GPL-2.0+
++ */
++
++#include <linux/io.h>
++
++#include "../sc64-regs.h"
++#include "../sg-regs.h"
++#include "local-init.h"
++
++void uniphier_pxs3_local_init(void)
++{
++	sg_set_pinsel(16, 0, 8, 4);	/* XNFWP   -> XNFWP */
++	sg_set_pinsel(17, 0, 8, 4);	/* XNFCE0  -> XNFCE0 */
++	sg_set_pinsel(18, 0, 8, 4);	/* NFRYBY0 -> NFRYBY0 */
++	sg_set_pinsel(19, 0, 8, 4);	/* XNFRE   -> XNFRE */
++	sg_set_pinsel(20, 0, 8, 4);	/* XNFWE   -> XNFWE */
++	sg_set_pinsel(21, 0, 8, 4);	/* NFALE   -> NFALE */
++	sg_set_pinsel(22, 0, 8, 4);	/* NFCLE   -> NFCLE */
++	sg_set_pinsel(23, 0, 8, 4);	/* NFD0    -> NFD0 */
++	sg_set_pinsel(24, 0, 8, 4);	/* NFD1    -> NFD1 */
++	sg_set_pinsel(25, 0, 8, 4);	/* NFD2    -> NFD2 */
++	sg_set_pinsel(26, 0, 8, 4);	/* NFD3    -> NFD3 */
++	sg_set_pinsel(27, 0, 8, 4);	/* NFD4    -> NFD4 */
++	sg_set_pinsel(28, 0, 8, 4);	/* NFD5    -> NFD5 */
++	sg_set_pinsel(29, 0, 8, 4);	/* NFD6    -> NFD6 */
++	sg_set_pinsel(30, 0, 8, 4);	/* NFD7    -> NFD7 */
++	sg_set_iectrl_range(16, 30);
++
++	sg_set_pinsel(223, 0, 8, 4);	/* XIRQ4    -> XIRQ4 */
++	sg_set_iectrl(223);
++}
+diff --git a/arch/arm/mach-uniphier/local/umc-funcsel-ld11.c b/arch/arm/mach-uniphier/local/umc-funcsel-ld11.c
+new file mode 100644
+index 0000000..c7ca957
+--- /dev/null
++++ b/arch/arm/mach-uniphier/local/umc-funcsel-ld11.c
+@@ -0,0 +1,243 @@
++#include <linux/io.h>
++
++#include "../init.h"
++
++#define CHANGE_UMC_WEMBNUMRGL
++
++#define UMC_BASE_SBUS 0x5b800000
++#define UMC_BASE 0x5bc00000
++
++#define UMC_CA_BASE(ch) (UMC_BASE_SBUS + 0x1000*(ch+1))
++
++#define UMC_COMSIZE_1D_L1_(ch)	(UMC_CA_BASE(ch) + 0xFD0)
++#define UMC_COMSIZE_1D_L2_(ch)	(UMC_CA_BASE(ch) + 0xFD4)
++#define UMC_COMSIZE_1D_L3_(ch)	(UMC_CA_BASE(ch) + 0xFD8)
++#define UMC_COMSIZE_1D_L4_(ch)	(UMC_CA_BASE(ch) + 0xFDC)
++#define UMC_COMSIZE_1D_L5_(ch)	(UMC_CA_BASE(ch) + 0xFE0)
++#define UMC_COMSIZE_1D_L6_(ch)	(UMC_CA_BASE(ch) + 0xFE4)
++#define UMC_COMSIZE_1D_L7_(ch)	(UMC_CA_BASE(ch) + 0xFE8)
++#define UMC_COMSIZE_1D_L8_(ch)	(UMC_CA_BASE(ch) + 0xFEC)
++
++#define UMC_RATECONT_ICS(ch) (UMC_CA_BASE(ch) + 0x0)
++#define UMC_RATECONT_ICA(ch) (UMC_CA_BASE(ch) + 0x4)
++#define UMC_RATECONT_IDS(ch) (UMC_CA_BASE(ch) + 0x8)
++#define UMC_RATECONT_ID2(ch) (UMC_CA_BASE(ch) + 0xC)
++#define UMC_RATECONT_AR0(ch) (UMC_CA_BASE(ch) + 0x10)
++#define UMC_RATECONT_VG2(ch) (UMC_CA_BASE(ch) + 0x14)
++#define UMC_RATECONT_SIO(ch) (UMC_CA_BASE(ch) + 0x18)
++#define UMC_RATECONT_VO0(ch) (UMC_CA_BASE(ch) + 0x1C)
++#define UMC_RATECONT_VPE(ch) (UMC_CA_BASE(ch) + 0x20)
++#define UMC_RATECONT_VPD(ch) (UMC_CA_BASE(ch) + 0x24)
++#define UMC_RATECONT_RGL(ch) (UMC_CA_BASE(ch) + 0x28)
++#define UMC_RATECONT_A2D(ch) (UMC_CA_BASE(ch) + 0x2C)
++#define UMC_RATECONT_DMD(ch) (UMC_CA_BASE(ch) + 0x30)
++#define UMC_RATECONT_REF(ch) (UMC_CA_BASE(ch) + 0x34)
++
++#define UMC_MASTEROPTION_ICS(ch) (UMC_CA_BASE(ch) + 0x200)
++#define UMC_MASTEROPTION_ICA(ch) (UMC_CA_BASE(ch) + 0x204)
++#define UMC_MASTEROPTION_IDS(ch) (UMC_CA_BASE(ch) + 0x208)
++#define UMC_MASTEROPTION_ID2(ch) (UMC_CA_BASE(ch) + 0x20C)
++#define UMC_MASTEROPTION_AR0(ch) (UMC_CA_BASE(ch) + 0x210)
++#define UMC_MASTEROPTION_VG2(ch) (UMC_CA_BASE(ch) + 0x214)
++#define UMC_MASTEROPTION_SIO(ch) (UMC_CA_BASE(ch) + 0x218)
++#define UMC_MASTEROPTION_VO0(ch) (UMC_CA_BASE(ch) + 0x21C)
++#define UMC_MASTEROPTION_VPE(ch) (UMC_CA_BASE(ch) + 0x220)
++#define UMC_MASTEROPTION_VPD(ch) (UMC_CA_BASE(ch) + 0x224)
++#define UMC_MASTEROPTION_RGL(ch) (UMC_CA_BASE(ch) + 0x228)
++#define UMC_MASTEROPTION_A2D(ch) (UMC_CA_BASE(ch) + 0x22C)
++#define UMC_MASTEROPTION_DMD(ch) (UMC_CA_BASE(ch) + 0x230)
++#define UMC_MASTEROPTION_REF(ch) (UMC_CA_BASE(ch) + 0x234)
++
++#define UMC_PRIORITY_ICS(ch) (UMC_CA_BASE(ch) + 0x400)
++#define UMC_PRIORITY_ICA(ch) (UMC_CA_BASE(ch) + 0x404)
++#define UMC_PRIORITY_IDS(ch) (UMC_CA_BASE(ch) + 0x408)
++#define UMC_PRIORITY_ID2(ch) (UMC_CA_BASE(ch) + 0x40C)
++#define UMC_PRIORITY_AR0(ch) (UMC_CA_BASE(ch) + 0x410)
++#define UMC_PRIORITY_VG2(ch) (UMC_CA_BASE(ch) + 0x414)
++#define UMC_PRIORITY_SIO(ch) (UMC_CA_BASE(ch) + 0x418)
++#define UMC_PRIORITY_VO0(ch) (UMC_CA_BASE(ch) + 0x41C)
++#define UMC_PRIORITY_VPE(ch) (UMC_CA_BASE(ch) + 0x420)
++#define UMC_PRIORITY_VPD(ch) (UMC_CA_BASE(ch) + 0x424)
++#define UMC_PRIORITY_RGL(ch) (UMC_CA_BASE(ch) + 0x428)
++#define UMC_PRIORITY_A2D(ch) (UMC_CA_BASE(ch) + 0x42C)
++#define UMC_PRIORITY_DMD(ch) (UMC_CA_BASE(ch) + 0x430)
++#define UMC_PRIORITY_REF(ch) (UMC_CA_BASE(ch) + 0x434)
++
++#define UMC_RATE_CHANGE(ch) (UMC_CA_BASE(ch) + 0xA00)
++#define UMC_DIR_ARB(ch)      (UMC_CA_BASE(ch) + 0xA90)
++#define UMC_BNK_ARB_MODE(ch) (UMC_CA_BASE(ch) + 0xA94)
++
++#define UMC_CHSEL_DMD (UMC_BASE + 0x08F0)
++
++#ifdef CHANGE_UMC_WEMBNUMRGL
++#define UMC_WEMBNUMRGL (UMC_BASE_SBUS + 0x0250)
++#define UMC_WEMBNUMRGL_W4R4 0x04040404
++#define UMC_WEMBNUMRGL_W3R3 0x03030303
++#define UMC_WEMBNUMRGL_W2R2 0x02020202
++#define UMC_WEMBNUMRGL_VALUE UMC_WEMBNUMRGL_W2R2
++#endif
++
++#define UMC_FUNC_DATA_END (0xffff)
++
++#define TOTAL_CH 2
++
++typedef struct _umc_addrdata_t{
++  u32 addr;
++  u32 data;
++} umc_addrdata_t;
++
++static const umc_addrdata_t UMC_FUNC_MAXLOAD_COMMON[] = {
++    { UMC_RATECONT_ICA(0),    0x03B640B6},
++    { UMC_RATECONT_AR0(0),    0x05004200},
++    { UMC_RATECONT_SIO(0),    0x04CB41CB},
++    { UMC_RATECONT_VO0(0),    0x032B402B},
++    { UMC_RATECONT_VPE(0),    0x03204020},
++    { UMC_RATECONT_A2D(0),    0x07D244D2},
++    { UMC_RATECONT_DMD(0),    0x04D341D3},
++    { UMC_RATECONT_REF(0),    0x060C430C},
++    { UMC_RATECONT_AR0(1),    0x03AA40AA},
++    { UMC_RATECONT_VG2(1),    0x03164016},
++    { UMC_RATECONT_SIO(1),    0x04F441F4},
++    { UMC_RATECONT_VO0(1),    0x034A404A},
++    { UMC_RATECONT_VPE(1),    0x03604060},
++    { UMC_RATECONT_VPD(1),    0x038A408A},
++    { UMC_RATECONT_A2D(1),    0x07D244D2},
++    { UMC_RATECONT_REF(1),    0x060C430C},
++    { UMC_MASTEROPTION_ICS(0),    0x00000004},
++    { UMC_MASTEROPTION_ICA(0),    0x00000005},
++    { UMC_MASTEROPTION_IDS(0),    0x00000010},
++    { UMC_MASTEROPTION_ID2(0),    0x00000010},
++    { UMC_MASTEROPTION_AR0(0),    0x00000805},
++    { UMC_MASTEROPTION_VG2(0),    0x00000010},
++    { UMC_MASTEROPTION_SIO(0),    0x00000011},
++    { UMC_MASTEROPTION_VO0(0),    0x00000801},
++    { UMC_MASTEROPTION_VPE(0),    0x00000811},
++    { UMC_MASTEROPTION_VPD(0),    0x00000010},
++    { UMC_MASTEROPTION_RGL(0),    0x00000010},
++    { UMC_MASTEROPTION_A2D(0),    0x00000011},
++    { UMC_MASTEROPTION_DMD(0),    0x00001011},
++    { UMC_MASTEROPTION_REF(0),    0x00000011},
++    { UMC_MASTEROPTION_ICS(1),    0x00000004},
++    { UMC_MASTEROPTION_ICA(1),    0x00000004},
++    { UMC_MASTEROPTION_IDS(1),    0x00000010},
++    { UMC_MASTEROPTION_ID2(1),    0x00000010},
++    { UMC_MASTEROPTION_AR0(1),    0x00000805},
++    { UMC_MASTEROPTION_VG2(1),    0x00000811},
++    { UMC_MASTEROPTION_SIO(1),    0x00000011},
++    { UMC_MASTEROPTION_VO0(1),    0x00000801},
++    { UMC_MASTEROPTION_VPE(1),    0x00000811},
++    { UMC_MASTEROPTION_VPD(1),    0x00000811},
++    { UMC_MASTEROPTION_RGL(1),    0x00000010},
++    { UMC_MASTEROPTION_A2D(1),    0x00000011},
++    { UMC_MASTEROPTION_DMD(1),    0x00001010},
++    { UMC_MASTEROPTION_REF(1),    0x00000011},
++    { UMC_PRIORITY_ICS(0),    0x00010000},
++    { UMC_PRIORITY_ICA(0),    0x01020000},
++    { UMC_PRIORITY_IDS(0),    0x02000009},
++    { UMC_PRIORITY_ID2(0),    0x0300000A},
++    { UMC_PRIORITY_AR0(0),    0x04000000},
++    { UMC_PRIORITY_VG2(0),    0x05000001},
++    { UMC_PRIORITY_SIO(0),    0x06000002},
++    { UMC_PRIORITY_VO0(0),    0x07000003},
++    { UMC_PRIORITY_VPE(0),    0x08000004},
++    { UMC_PRIORITY_VPD(0),    0x09000005},
++    { UMC_PRIORITY_RGL(0),    0x0A000006},
++    { UMC_PRIORITY_A2D(0),    0x0B000007},
++    { UMC_PRIORITY_DMD(0),    0x0C000008},
++    { UMC_PRIORITY_REF(0),    0x0D000000},
++    { UMC_PRIORITY_ICS(1),    0x00010000},
++    { UMC_PRIORITY_ICA(1),    0x01020000},
++    { UMC_PRIORITY_IDS(1),    0x02000009},
++    { UMC_PRIORITY_ID2(1),    0x0300000A},
++    { UMC_PRIORITY_AR0(1),    0x04000000},
++    { UMC_PRIORITY_VG2(1),    0x05000001},
++    { UMC_PRIORITY_SIO(1),    0x06000002},
++    { UMC_PRIORITY_VO0(1),    0x07000003},
++    { UMC_PRIORITY_VPE(1),    0x08000004},
++    { UMC_PRIORITY_VPD(1),    0x09000005},
++    { UMC_PRIORITY_RGL(1),    0x0A000006},
++    { UMC_PRIORITY_A2D(1),    0x0B000007},
++    { UMC_PRIORITY_DMD(1),    0x0C000008},
++    { UMC_PRIORITY_REF(1),    0x0D000000},
++    { UMC_CHSEL_DMD,    0x03000100 },
++    { UMC_FUNC_DATA_END, 0 }
++};
++
++static const umc_addrdata_t comsize_table_sld11[] = {
++	/*** For DDR3-CH0 ***/
++	{UMC_COMSIZE_1D_L1_(0),     0x01001002}, /*lsz=01, cls=00, pin=0, ett=0, dir=w, CH=1, oh=32 (=> setval=2)*/
++	{UMC_COMSIZE_1D_L2_(0),     0x02001004}, /*lsz=02, cls=00, pin=0, ett=0, dir=w, CH=1, oh=64 (=> setval=4)*/
++	{UMC_COMSIZE_1D_L3_(0),     0x03001006}, /*lsz=03, cls=00, pin=0, ett=0, dir=w, CH=1, oh=96 (=> setval=6)*/
++	{UMC_COMSIZE_1D_L4_(0),     0x04001008}, /*lsz=04, cls=00, pin=0, ett=0, dir=w, CH=1, oh=128 (=> setval=8)*/
++	{UMC_COMSIZE_1D_L5_(0),     0x0600100C}, /*lsz=06, cls=00, pin=0, ett=0, dir=w, CH=1, oh=192 (=> setval=12)*/
++	{UMC_COMSIZE_1D_L6_(0),     0x08001010}, /*lsz=08, cls=00, pin=0, ett=0, dir=w, CH=1, oh=256 (=> setval=16)*/
++	{UMC_COMSIZE_1D_L7_(0),     0x0c001018}, /*lsz=12, cls=00, pin=0, ett=0, dir=w, CH=1, oh=384 (=> setval=24)*/
++	{UMC_COMSIZE_1D_L8_(0),     0x10001020}, /*lsz=16, cls=00, pin=0, ett=0, dir=w, CH=1, oh=512 (=> setval=32)*/
++	
++	/*** For DDR3-CH1 ***/
++	{UMC_COMSIZE_1D_L1_(1),     0x01001002}, /*lsz=01, cls=00, pin=0, ett=0, dir=w, CH=1, oh=32 (=> setval=2)*/
++	{UMC_COMSIZE_1D_L2_(1),     0x02001004}, /*lsz=02, cls=00, pin=0, ett=0, dir=w, CH=1, oh=64 (=> setval=4)*/
++	{UMC_COMSIZE_1D_L3_(1),     0x03001006}, /*lsz=03, cls=00, pin=0, ett=0, dir=w, CH=1, oh=96 (=> setval=6)*/
++	{UMC_COMSIZE_1D_L4_(1),     0x04001008}, /*lsz=04, cls=00, pin=0, ett=0, dir=w, CH=1, oh=128 (=> setval=8)*/
++	{UMC_COMSIZE_1D_L5_(1),     0x0600100C}, /*lsz=06, cls=00, pin=0, ett=0, dir=w, CH=1, oh=192 (=> setval=12)*/
++	{UMC_COMSIZE_1D_L6_(1),     0x08001010}, /*lsz=08, cls=00, pin=0, ett=0, dir=w, CH=1, oh=256 (=> setval=16)*/
++	{UMC_COMSIZE_1D_L7_(1),     0x0c001018}, /*lsz=12, cls=00, pin=0, ett=0, dir=w, CH=1, oh=384 (=> setval=24)*/
++	{UMC_COMSIZE_1D_L8_(1),     0x10001020}, /*lsz=16, cls=00, pin=0, ett=0, dir=w, CH=1, oh=512 (=> setval=32)*/
++	
++	{UMC_FUNC_DATA_END, 0x0 }
++};
++
++static inline void write32(u32 addr, u32 data)
++{
++	writel(data, (void __iomem *)(u64)addr);
++}
++
++static inline u32 read32(u32 addr)
++{
++	return readl((void __iomem *)(u64)addr);
++}
++
++void uniphier_ld11_umc_funcsel(void)
++{
++
++	const umc_addrdata_t *p;
++	int ch;
++
++#ifdef CHANGE_UMC_WEMBNUMRGL
++	write32(UMC_WEMBNUMRGL, UMC_WEMBNUMRGL_VALUE);
++#endif
++
++	/* set table for command size rate control */
++	for(p = comsize_table_sld11; p->addr != UMC_FUNC_DATA_END; p++) {
++		write32(p->addr, p->data);
++	}
++
++	/* set table for bandwidth setting */
++	for(p = UMC_FUNC_MAXLOAD_COMMON; p->addr != UMC_FUNC_DATA_END; p++) {
++		write32(p->addr, p->data);
++	}
++	//	/* Write Funcsel Index */
++	//write32(UMCDEBUGD(TOTAL_CH - 1), p->data);
++
++	/* set rate change register */
++	for(ch = 0; ch < TOTAL_CH; ch++){
++		write32(UMC_RATE_CHANGE(ch), 0x00000001);
++	}
++
++	/* register polling ( wait until UMC_RATE_CHANGE is 0x00000000 ) */
++	for(ch = 0; ch < TOTAL_CH; ch++){
++		while(read32(UMC_RATE_CHANGE(ch)))
++			;
++	}
++
++	/* direction history arbitration mode off (temporary) */
++	for(ch = 0; ch < TOTAL_CH; ch++){
++		write32(UMC_DIR_ARB(ch), 0x00000000);
++	}
++
++	/* bank history arbitration mode off (temporary) */
++	for(ch = 0; ch < TOTAL_CH; ch++){
++		write32(UMC_BNK_ARB_MODE(ch), 0x00000000);
++	}
++
++}
+diff --git a/arch/arm/mach-uniphier/local/umc-funcsel-ld20.c b/arch/arm/mach-uniphier/local/umc-funcsel-ld20.c
+new file mode 100644
+index 0000000..7921657
+--- /dev/null
++++ b/arch/arm/mach-uniphier/local/umc-funcsel-ld20.c
+@@ -0,0 +1,339 @@
++#include <linux/io.h>
++
++#include "../init.h"
++
++#define UMC_BASE 0x5b800000
++#define UMC_BASE_(ch)  (UMC_BASE + 0x00200000 * (ch) )
++#define UMC_CA_BASE(ch) (UMC_BASE_(ch) + 0x10000)
++#define UMC_BASE_SBUS 0x5b600000
++
++#define UMC_COMSIZE_1D_L1_(ch)	(UMC_CA_BASE(ch) + 0xFD0)
++#define UMC_COMSIZE_1D_L2_(ch)	(UMC_CA_BASE(ch) + 0xFD4)
++#define UMC_COMSIZE_1D_L3_(ch)	(UMC_CA_BASE(ch) + 0xFD8)
++#define UMC_COMSIZE_1D_L4_(ch)	(UMC_CA_BASE(ch) + 0xFDC)
++#define UMC_COMSIZE_1D_L5_(ch)	(UMC_CA_BASE(ch) + 0xFE0)
++#define UMC_COMSIZE_1D_L6_(ch)	(UMC_CA_BASE(ch) + 0xFE4)
++#define UMC_COMSIZE_1D_L7_(ch)	(UMC_CA_BASE(ch) + 0xFE8)
++#define UMC_COMSIZE_1D_L8_(ch)	(UMC_CA_BASE(ch) + 0xFEC)
++
++#define UMC_RATECONT_ICS(ch) (UMC_CA_BASE(ch) + 0x0)
++#define UMC_RATECONT_ICA(ch) (UMC_CA_BASE(ch) + 0x4)
++#define UMC_RATECONT_VH1(ch) (UMC_CA_BASE(ch) + 0x8)
++#define UMC_RATECONT_VG1(ch) (UMC_CA_BASE(ch) + 0xC)
++#define UMC_RATECONT_VG2(ch) (UMC_CA_BASE(ch) + 0x10)
++#define UMC_RATECONT_SIO(ch) (UMC_CA_BASE(ch) + 0x14)
++#define UMC_RATECONT_GIO(ch) (UMC_CA_BASE(ch) + 0x18)
++#define UMC_RATECONT_VO0(ch) (UMC_CA_BASE(ch) + 0x1C)
++#define UMC_RATECONT_VO1(ch) (UMC_CA_BASE(ch) + 0x20)
++#define UMC_RATECONT_VPE(ch) (UMC_CA_BASE(ch) + 0x24)
++#define UMC_RATECONT_VPD(ch) (UMC_CA_BASE(ch) + 0x28)
++#define UMC_RATECONT_GR(ch) (UMC_CA_BASE(ch) + 0x2C)
++#define UMC_RATECONT_PCI(ch) (UMC_CA_BASE(ch) + 0x30)
++#define UMC_RATECONT_A2D(ch) (UMC_CA_BASE(ch) + 0x34)
++#define UMC_RATECONT_DMD(ch) (UMC_CA_BASE(ch) + 0x38)
++#define UMC_RATECONT_REF(ch) (UMC_CA_BASE(ch) + 0x3C)
++#define UMC_RATECONT_IDS(ch) (UMC_CA_BASE(ch) + 0x40)
++#define UMC_RATECONT_ID2(ch) (UMC_CA_BASE(ch) + 0x44)
++#define UMC_RATECONT_AR0(ch) (UMC_CA_BASE(ch) + 0x48)
++#define UMC_RATECONT_AR1(ch) (UMC_CA_BASE(ch) + 0x4C)
++#define UMC_RATECONT_S2D(ch) (UMC_CA_BASE(ch) + 0x50)
++#define UMC_RATECONT_I2D(ch) (UMC_CA_BASE(ch) + 0x54)
++
++#define UMC_MASTEROPTION_ICS(ch) (UMC_CA_BASE(ch) + 0x200)
++#define UMC_MASTEROPTION_ICA(ch) (UMC_CA_BASE(ch) + 0x204)
++#define UMC_MASTEROPTION_VH1(ch) (UMC_CA_BASE(ch) + 0x208)
++#define UMC_MASTEROPTION_VG1(ch) (UMC_CA_BASE(ch) + 0x20C)
++#define UMC_MASTEROPTION_VG2(ch) (UMC_CA_BASE(ch) + 0x210)
++#define UMC_MASTEROPTION_SIO(ch) (UMC_CA_BASE(ch) + 0x214)
++#define UMC_MASTEROPTION_GIO(ch) (UMC_CA_BASE(ch) + 0x218)
++#define UMC_MASTEROPTION_VO0(ch) (UMC_CA_BASE(ch) + 0x21C)
++#define UMC_MASTEROPTION_VO1(ch) (UMC_CA_BASE(ch) + 0x220)
++#define UMC_MASTEROPTION_VPE(ch) (UMC_CA_BASE(ch) + 0x224)
++#define UMC_MASTEROPTION_VPD(ch) (UMC_CA_BASE(ch) + 0x228)
++#define UMC_MASTEROPTION_GR(ch) (UMC_CA_BASE(ch) + 0x22C)
++#define UMC_MASTEROPTION_PCI(ch) (UMC_CA_BASE(ch) + 0x230)
++#define UMC_MASTEROPTION_A2D(ch) (UMC_CA_BASE(ch) + 0x234)
++#define UMC_MASTEROPTION_DMD(ch) (UMC_CA_BASE(ch) + 0x238)
++#define UMC_MASTEROPTION_REF(ch) (UMC_CA_BASE(ch) + 0x23C)
++#define UMC_MASTEROPTION_IDS(ch) (UMC_CA_BASE(ch) + 0x240)
++#define UMC_MASTEROPTION_ID2(ch) (UMC_CA_BASE(ch) + 0x244)
++#define UMC_MASTEROPTION_AR0(ch) (UMC_CA_BASE(ch) + 0x248)
++#define UMC_MASTEROPTION_AR1(ch) (UMC_CA_BASE(ch) + 0x24C)
++#define UMC_MASTEROPTION_S2D(ch) (UMC_CA_BASE(ch) + 0x250)
++#define UMC_MASTEROPTION_I2D(ch) (UMC_CA_BASE(ch) + 0x254)
++
++#define UMC_PRIORITY_ICS(ch) (UMC_CA_BASE(ch) + 0x400)
++#define UMC_PRIORITY_ICA(ch) (UMC_CA_BASE(ch) + 0x404)
++#define UMC_PRIORITY_VH1(ch) (UMC_CA_BASE(ch) + 0x408)
++#define UMC_PRIORITY_VG1(ch) (UMC_CA_BASE(ch) + 0x40C)
++#define UMC_PRIORITY_VG2(ch) (UMC_CA_BASE(ch) + 0x410)
++#define UMC_PRIORITY_SIO(ch) (UMC_CA_BASE(ch) + 0x414)
++#define UMC_PRIORITY_GIO(ch) (UMC_CA_BASE(ch) + 0x418)
++#define UMC_PRIORITY_VO0(ch) (UMC_CA_BASE(ch) + 0x41C)
++#define UMC_PRIORITY_VO1(ch) (UMC_CA_BASE(ch) + 0x420)
++#define UMC_PRIORITY_VPE(ch) (UMC_CA_BASE(ch) + 0x424)
++#define UMC_PRIORITY_VPD(ch) (UMC_CA_BASE(ch) + 0x428)
++#define UMC_PRIORITY_GR(ch) (UMC_CA_BASE(ch) + 0x42C)
++#define UMC_PRIORITY_PCI(ch) (UMC_CA_BASE(ch) + 0x430)
++#define UMC_PRIORITY_A2D(ch) (UMC_CA_BASE(ch) + 0x434)
++#define UMC_PRIORITY_DMD(ch) (UMC_CA_BASE(ch) + 0x438)
++#define UMC_PRIORITY_REF(ch) (UMC_CA_BASE(ch) + 0x43C)
++#define UMC_PRIORITY_IDS(ch) (UMC_CA_BASE(ch) + 0x440)
++#define UMC_PRIORITY_ID2(ch) (UMC_CA_BASE(ch) + 0x444)
++#define UMC_PRIORITY_AR0(ch) (UMC_CA_BASE(ch) + 0x448)
++#define UMC_PRIORITY_AR1(ch) (UMC_CA_BASE(ch) + 0x44C)
++#define UMC_PRIORITY_S2D(ch) (UMC_CA_BASE(ch) + 0x450)
++#define UMC_PRIORITY_I2D(ch) (UMC_CA_BASE(ch) + 0x454)
++
++#define UMC_RATE_CHANGE(ch) (UMC_CA_BASE(ch) + 0xA00)
++#define UMC_DIR_ARB(ch)      (UMC_CA_BASE(ch) + 0xA90)
++#define UMC_BNK_ARB_MODE(ch) (UMC_CA_BASE(ch) + 0xA94)
++
++#define UMC_CHSEL_DMD (UMC_BASE_SBUS + 0x3854)
++
++#define UMC_FUNC_DATA_END (0xffff)
++
++#define TOTAL_CH 3
++
++typedef struct _umc_addrdata_t{
++  u32 addr;
++  u32 data;
++} umc_addrdata_t;
++
++static const umc_addrdata_t UMC_FUNC_MAXLOAD_COMMON[] = {
++    { UMC_RATECONT_ICA(0),    0x04AA41AA},
++    { UMC_RATECONT_SIO(0),    0x072F442F},
++    { UMC_RATECONT_VO0(0),    0x03384038},
++    { UMC_RATECONT_VO1(0),    0x03394039},
++    { UMC_RATECONT_VPE(0),    0x03214021},
++    { UMC_RATECONT_A2D(0),    0x0E3B4B3B},
++    { UMC_RATECONT_DMD(0),    0x07404440},
++    { UMC_RATECONT_REF(0),    0x0A1E471E},
++    { UMC_RATECONT_VG1(1),    0x035E405E},
++    { UMC_RATECONT_VG2(1),    0x031C401C},
++    { UMC_RATECONT_VO0(1),    0x034B404B},
++    { UMC_RATECONT_VPE(1),    0x03494049},
++    { UMC_RATECONT_VPD(1),    0x03544054},
++    { UMC_RATECONT_A2D(1),    0x0E3B4B3B},
++    { UMC_RATECONT_REF(1),    0x0A1E471E},
++    { UMC_RATECONT_REF(2),    0x0A1E471E},
++    { UMC_MASTEROPTION_ICS(0),    0x00000804},
++    { UMC_MASTEROPTION_ICA(0),    0x00000805},
++    { UMC_MASTEROPTION_VH1(0),    0x00000810},
++    { UMC_MASTEROPTION_VG1(0),    0x00000810},
++    { UMC_MASTEROPTION_VG2(0),    0x00000810},
++    { UMC_MASTEROPTION_SIO(0),    0x00000011},
++    { UMC_MASTEROPTION_GIO(0),    0x00000010},
++    { UMC_MASTEROPTION_VO0(0),    0x00000801},
++    { UMC_MASTEROPTION_VO1(0),    0x00000811},
++    { UMC_MASTEROPTION_VPE(0),    0x00000811},
++    { UMC_MASTEROPTION_VPD(0),    0x00000810},
++    { UMC_MASTEROPTION_GR(0),    0x00000810},
++    { UMC_MASTEROPTION_PCI(0),    0x00001810},
++    { UMC_MASTEROPTION_A2D(0),    0x00000011},
++    { UMC_MASTEROPTION_DMD(0),    0x00000001},
++    { UMC_MASTEROPTION_REF(0),    0x00000001},
++    { UMC_MASTEROPTION_IDS(0),    0x00001010},
++    { UMC_MASTEROPTION_ID2(0),    0x00001010},
++    { UMC_MASTEROPTION_AR0(0),    0x00001804},
++    { UMC_MASTEROPTION_AR1(0),    0x00000804},
++    { UMC_MASTEROPTION_S2D(0),    0x00000010},
++    { UMC_MASTEROPTION_I2D(0),    0x00000010},
++    { UMC_MASTEROPTION_ICS(1),    0x00000804},
++    { UMC_MASTEROPTION_ICA(1),    0x00000804},
++    { UMC_MASTEROPTION_VH1(1),    0x00000810},
++    { UMC_MASTEROPTION_VG1(1),    0x00000811},
++    { UMC_MASTEROPTION_VG2(1),    0x00000811},
++    { UMC_MASTEROPTION_SIO(1),    0x00000010},
++    { UMC_MASTEROPTION_GIO(1),    0x00000010},
++    { UMC_MASTEROPTION_VO0(1),    0x00000801},
++    { UMC_MASTEROPTION_VO1(1),    0x00000810},
++    { UMC_MASTEROPTION_VPE(1),    0x00000811},
++    { UMC_MASTEROPTION_VPD(1),    0x00000811},
++    { UMC_MASTEROPTION_GR(1),    0x00000810},
++    { UMC_MASTEROPTION_PCI(1),    0x00001810},
++    { UMC_MASTEROPTION_A2D(1),    0x00000011},
++    { UMC_MASTEROPTION_DMD(1),    0x00000010},
++    { UMC_MASTEROPTION_REF(1),    0x00000001},
++    { UMC_MASTEROPTION_IDS(1),    0x00001010},
++    { UMC_MASTEROPTION_ID2(1),    0x00001010},
++    { UMC_MASTEROPTION_AR0(1),    0x00001804},
++    { UMC_MASTEROPTION_AR1(1),    0x00000804},
++    { UMC_MASTEROPTION_S2D(1),    0x00000010},
++    { UMC_MASTEROPTION_I2D(1),    0x00000010},
++    { UMC_MASTEROPTION_ICS(2),    0x00000804},
++    { UMC_MASTEROPTION_ICA(2),    0x00000804},
++    { UMC_MASTEROPTION_VH1(2),    0x00000810},
++    { UMC_MASTEROPTION_VG1(2),    0x00000810},
++    { UMC_MASTEROPTION_VG2(2),    0x00000810},
++    { UMC_MASTEROPTION_SIO(2),    0x00000010},
++    { UMC_MASTEROPTION_GIO(2),    0x00000010},
++    { UMC_MASTEROPTION_VO0(2),    0x00000810},
++    { UMC_MASTEROPTION_VO1(2),    0x00000810},
++    { UMC_MASTEROPTION_VPE(2),    0x00000810},
++    { UMC_MASTEROPTION_VPD(2),    0x00000810},
++    { UMC_MASTEROPTION_GR(2),    0x00000810},
++    { UMC_MASTEROPTION_PCI(2),    0x00001810},
++    { UMC_MASTEROPTION_A2D(2),    0x00000010},
++    { UMC_MASTEROPTION_DMD(2),    0x00000010},
++    { UMC_MASTEROPTION_REF(2),    0x00000001},
++    { UMC_MASTEROPTION_IDS(2),    0x00001010},
++    { UMC_MASTEROPTION_ID2(2),    0x00001010},
++    { UMC_MASTEROPTION_AR0(2),    0x00001804},
++    { UMC_MASTEROPTION_AR1(2),    0x00000804},
++    { UMC_MASTEROPTION_S2D(2),    0x00000010},
++    { UMC_MASTEROPTION_I2D(2),    0x00000010},
++    { UMC_PRIORITY_ICS(0),    0x00030000},
++    { UMC_PRIORITY_ICA(0),    0x01020000},
++    { UMC_PRIORITY_VH1(0),    0x02000002},
++    { UMC_PRIORITY_VG1(0),    0x03000003},
++    { UMC_PRIORITY_VG2(0),    0x04000004},
++    { UMC_PRIORITY_SIO(0),    0x05000005},
++    { UMC_PRIORITY_GIO(0),    0x06000006},
++    { UMC_PRIORITY_VO0(0),    0x07000007},
++    { UMC_PRIORITY_VO1(0),    0x08000008},
++    { UMC_PRIORITY_VPE(0),    0x09000009},
++    { UMC_PRIORITY_VPD(0),    0x0A00000A},
++    { UMC_PRIORITY_GR(0),    0x0B000001},
++    { UMC_PRIORITY_PCI(0),    0x0C00000B},
++    { UMC_PRIORITY_A2D(0),    0x0D00000C},
++    { UMC_PRIORITY_DMD(0),    0x0E00000D},
++    { UMC_PRIORITY_REF(0),    0x0F000000},
++    { UMC_PRIORITY_IDS(0),    0x1000000E},
++    { UMC_PRIORITY_ID2(0),    0x1100000F},
++    { UMC_PRIORITY_AR0(0),    0x12000000},
++    { UMC_PRIORITY_AR1(0),    0x13010000},
++    { UMC_PRIORITY_S2D(0),    0x14000010},
++    { UMC_PRIORITY_I2D(0),    0x15000011},
++    { UMC_PRIORITY_ICS(1),    0x00030000},
++    { UMC_PRIORITY_ICA(1),    0x01020000},
++    { UMC_PRIORITY_VH1(1),    0x02000002},
++    { UMC_PRIORITY_VG1(1),    0x03000003},
++    { UMC_PRIORITY_VG2(1),    0x04000004},
++    { UMC_PRIORITY_SIO(1),    0x05000005},
++    { UMC_PRIORITY_GIO(1),    0x06000006},
++    { UMC_PRIORITY_VO0(1),    0x07000007},
++    { UMC_PRIORITY_VO1(1),    0x08000008},
++    { UMC_PRIORITY_VPE(1),    0x09000009},
++    { UMC_PRIORITY_VPD(1),    0x0A00000A},
++    { UMC_PRIORITY_GR(1),    0x0B000001},
++    { UMC_PRIORITY_PCI(1),    0x0C00000B},
++    { UMC_PRIORITY_A2D(1),    0x0D00000C},
++    { UMC_PRIORITY_DMD(1),    0x0E00000D},
++    { UMC_PRIORITY_REF(1),    0x0F000000},
++    { UMC_PRIORITY_IDS(1),    0x1000000E},
++    { UMC_PRIORITY_ID2(1),    0x1100000F},
++    { UMC_PRIORITY_AR0(1),    0x12000000},
++    { UMC_PRIORITY_AR1(1),    0x13010000},
++    { UMC_PRIORITY_S2D(1),    0x14000010},
++    { UMC_PRIORITY_I2D(1),    0x15000011},
++    { UMC_PRIORITY_ICS(2),    0x00030000},
++    { UMC_PRIORITY_ICA(2),    0x01020000},
++    { UMC_PRIORITY_VH1(2),    0x02000002},
++    { UMC_PRIORITY_VG1(2),    0x03000003},
++    { UMC_PRIORITY_VG2(2),    0x04000004},
++    { UMC_PRIORITY_SIO(2),    0x05000005},
++    { UMC_PRIORITY_GIO(2),    0x06000006},
++    { UMC_PRIORITY_VO0(2),    0x07000007},
++    { UMC_PRIORITY_VO1(2),    0x08000008},
++    { UMC_PRIORITY_VPE(2),    0x09000009},
++    { UMC_PRIORITY_VPD(2),    0x0A00000A},
++    { UMC_PRIORITY_GR(2),    0x0B000001},
++    { UMC_PRIORITY_PCI(2),    0x0C00000B},
++    { UMC_PRIORITY_A2D(2),    0x0D00000C},
++    { UMC_PRIORITY_DMD(2),    0x0E00000D},
++    { UMC_PRIORITY_REF(2),    0x0F000000},
++    { UMC_PRIORITY_IDS(2),    0x1000000E},
++    { UMC_PRIORITY_ID2(2),    0x1100000F},
++    { UMC_PRIORITY_AR0(2),    0x12000000},
++    { UMC_PRIORITY_AR1(2),    0x13010000},
++    { UMC_PRIORITY_S2D(2),    0x14000010},
++    { UMC_PRIORITY_I2D(2),    0x15000011},
++    { UMC_CHSEL_DMD,    0x03000100 },
++    { UMC_FUNC_DATA_END, 0 }
++};
++
++static const umc_addrdata_t comsize_table_ld10[] = {
++	/*** For DDR3-CH0 ***/
++	{UMC_COMSIZE_1D_L1_(0),     0x01001002}, /*lsz=01, cls=00, pin=0, ett=0, dir=w, CH=1, oh=32 (=> setval=2)*/
++	{UMC_COMSIZE_1D_L2_(0),     0x02001004}, /*lsz=02, cls=00, pin=0, ett=0, dir=w, CH=1, oh=64 (=> setval=4)*/
++	{UMC_COMSIZE_1D_L3_(0),     0x03001006}, /*lsz=03, cls=00, pin=0, ett=0, dir=w, CH=1, oh=96 (=> setval=6)*/
++	{UMC_COMSIZE_1D_L4_(0),     0x04001008}, /*lsz=04, cls=00, pin=0, ett=0, dir=w, CH=1, oh=128 (=> setval=8)*/
++	{UMC_COMSIZE_1D_L5_(0),     0x0600100C}, /*lsz=06, cls=00, pin=0, ett=0, dir=w, CH=1, oh=192 (=> setval=12)*/
++	{UMC_COMSIZE_1D_L6_(0),     0x08001010}, /*lsz=08, cls=00, pin=0, ett=0, dir=w, CH=1, oh=256 (=> setval=16)*/
++	{UMC_COMSIZE_1D_L7_(0),     0x0c001018}, /*lsz=12, cls=00, pin=0, ett=0, dir=w, CH=1, oh=384 (=> setval=24)*/
++	{UMC_COMSIZE_1D_L8_(0),     0x10001020}, /*lsz=16, cls=00, pin=0, ett=0, dir=w, CH=1, oh=512 (=> setval=32)*/
++	
++	/*** For DDR3-CH1 ***/
++	{UMC_COMSIZE_1D_L1_(1),     0x01001002}, /*lsz=01, cls=00, pin=0, ett=0, dir=w, CH=1, oh=32 (=> setval=2)*/
++	{UMC_COMSIZE_1D_L2_(1),     0x02001004}, /*lsz=02, cls=00, pin=0, ett=0, dir=w, CH=1, oh=64 (=> setval=4)*/
++	{UMC_COMSIZE_1D_L3_(1),     0x03001006}, /*lsz=03, cls=00, pin=0, ett=0, dir=w, CH=1, oh=96 (=> setval=6)*/
++	{UMC_COMSIZE_1D_L4_(1),     0x04001008}, /*lsz=04, cls=00, pin=0, ett=0, dir=w, CH=1, oh=128 (=> setval=8)*/
++	{UMC_COMSIZE_1D_L5_(1),     0x0600100C}, /*lsz=06, cls=00, pin=0, ett=0, dir=w, CH=1, oh=192 (=> setval=12)*/
++	{UMC_COMSIZE_1D_L6_(1),     0x08001010}, /*lsz=08, cls=00, pin=0, ett=0, dir=w, CH=1, oh=256 (=> setval=16)*/
++	{UMC_COMSIZE_1D_L7_(1),     0x0c001018}, /*lsz=12, cls=00, pin=0, ett=0, dir=w, CH=1, oh=384 (=> setval=24)*/
++	{UMC_COMSIZE_1D_L8_(1),     0x10001020}, /*lsz=16, cls=00, pin=0, ett=0, dir=w, CH=1, oh=512 (=> setval=32)*/
++	
++	/*** For DDR3-CH2 ***/
++	{UMC_COMSIZE_1D_L1_(2),     0x01001002}, /*lsz=01, cls=00, pin=0, ett=0, dir=w, CH=1, oh=32 (=> setval=2)*/
++	{UMC_COMSIZE_1D_L2_(2),     0x02001004}, /*lsz=02, cls=00, pin=0, ett=0, dir=w, CH=1, oh=64 (=> setval=4)*/
++	{UMC_COMSIZE_1D_L3_(2),     0x03001006}, /*lsz=03, cls=00, pin=0, ett=0, dir=w, CH=1, oh=96 (=> setval=6)*/
++	{UMC_COMSIZE_1D_L4_(2),     0x04001008}, /*lsz=04, cls=00, pin=0, ett=0, dir=w, CH=1, oh=128 (=> setval=8)*/
++	{UMC_COMSIZE_1D_L5_(2),     0x0600100C}, /*lsz=06, cls=00, pin=0, ett=0, dir=w, CH=1, oh=192 (=> setval=12)*/
++	{UMC_COMSIZE_1D_L6_(2),     0x08001010}, /*lsz=08, cls=00, pin=0, ett=0, dir=w, CH=1, oh=256 (=> setval=16)*/
++	{UMC_COMSIZE_1D_L7_(2),     0x0c001018}, /*lsz=12, cls=00, pin=0, ett=0, dir=w, CH=1, oh=384 (=> setval=24)*/
++	{UMC_COMSIZE_1D_L8_(2),     0x10001020}, /*lsz=16, cls=00, pin=0, ett=0, dir=w, CH=1, oh=512 (=> setval=32)*/
++	
++	{UMC_FUNC_DATA_END, 0x0 }
++};
++
++static inline void write32(u32 addr, u32 data)
++{
++	writel(data, (void __iomem *)(u64)addr);
++}
++
++static inline u32 read32(u32 addr)
++{
++	return readl((void __iomem *)(u64)addr);
++}
++
++void uniphier_ld20_umc_funcsel(void)
++{
++
++	const umc_addrdata_t *p;
++	int ch;
++
++	/* set table for command size rate control */
++	for(p = comsize_table_ld10; p->addr != UMC_FUNC_DATA_END; p++) {
++		write32(p->addr, p->data);
++	}
++
++	/* set table for bandwidth setting */
++	for(p = UMC_FUNC_MAXLOAD_COMMON; p->addr != UMC_FUNC_DATA_END; p++) {
++		write32(p->addr, p->data);
++	}
++	//	/* Write Funcsel Index */
++	//write32(UMCDEBUGD(TOTAL_CH - 1), p->data);
++
++	/* set rate change register */
++	for(ch = 0; ch < TOTAL_CH; ch++){
++		write32(UMC_RATE_CHANGE(ch), 0x00000001);
++	}
++
++	/* register polling ( wait until UMC_RATE_CHANGE is 0x00000000 ) */
++	for(ch = 0; ch < TOTAL_CH; ch++){
++		while(read32(UMC_RATE_CHANGE(ch)))
++			;
++	}
++
++	/* direction history arbitration mode off (temporary) */
++	for(ch = 0; ch < TOTAL_CH; ch++){
++		write32(UMC_DIR_ARB(ch), 0x00000000);
++	}
++
++	/* bank history arbitration mode off (temporary) */
++	for(ch = 0; ch < TOTAL_CH; ch++){
++		write32(UMC_BNK_ARB_MODE(ch), 0x00000000);
++	}
++
++}
+diff --git a/arch/arm/mach-uniphier/local/umc-funcsel-pxs3.c b/arch/arm/mach-uniphier/local/umc-funcsel-pxs3.c
+new file mode 100644
+index 0000000..b0bfd9a
+--- /dev/null
++++ b/arch/arm/mach-uniphier/local/umc-funcsel-pxs3.c
+@@ -0,0 +1,14 @@
++/*
++ * Copyright (C) 2017 Socionext Inc.
++ *
++ * SPDX-License-Identifier:	GPL-2.0+
++ */
++
++#include <linux/io.h>
++
++#include "local-init.h"
++
++void uniphier_pxs3_umc_funcsel(void)
++{
++}
++
+-- 
+2.7.4
+

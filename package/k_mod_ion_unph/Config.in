@@ -1,0 +1,4 @@
+
+config BR2_PACKAGE_K_MOD_ION_UNPH
+    bool "ION extension driver"
+    depends on BR2_LINUX_KERNEL

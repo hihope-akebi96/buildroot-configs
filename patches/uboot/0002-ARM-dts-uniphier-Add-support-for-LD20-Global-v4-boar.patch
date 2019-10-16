@@ -1,0 +1,49 @@
+From 66a43c3ff17f87985fd7b51a283d167dbec45369 Mon Sep 17 00:00:00 2001
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Date: Tue, 4 Jun 2019 10:16:20 +0900
+Subject: [PATCH 02/16] ARM: dts: uniphier: Add support for LD20 Global v4
+ board
+
+Add initial device tree support for LD20 Global v4 board.
+
+Since LD20 Global V4 board is similar to LD20 Global board,
+the device tree of Global V4 board shall be derived from
+Global board.
+
+Signed-off-by: sato.shunji <sato.shunji@socionext.com>
+Signed-off-by: Katsuhiro Suzuki <suzuki.katsuhiro@socionext.com>
+Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+---
+ arch/arm/dts/Makefile                    | 1 +
+ arch/arm/dts/uniphier-ld20-global-v4.dts | 7 +++++++
+ 2 files changed, 8 insertions(+)
+ create mode 100644 arch/arm/dts/uniphier-ld20-global-v4.dts
+
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index be6a6a6..7f680fe 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -159,6 +159,7 @@ dtb-$(CONFIG_ARCH_UNIPHIER_LD11) += \
+ 	uniphier-ld11-ref.dtb
+ dtb-$(CONFIG_ARCH_UNIPHIER_LD20) += \
+ 	uniphier-ld20-global.dtb \
++	uniphier-ld20-global-v4.dtb \
+ 	uniphier-ld20-ref.dtb
+ dtb-$(CONFIG_ARCH_UNIPHIER_LD4) += \
+ 	uniphier-ld4-ref.dtb
+diff --git a/arch/arm/dts/uniphier-ld20-global-v4.dts b/arch/arm/dts/uniphier-ld20-global-v4.dts
+new file mode 100644
+index 0000000..8287ee8
+--- /dev/null
++++ b/arch/arm/dts/uniphier-ld20-global-v4.dts
+@@ -0,0 +1,7 @@
++#include "uniphier-ld20-global.dts"
++
++/ {
++	model = "UniPhier LD20 Global Board v4 (REF_LD20_GP_V4)";
++	compatible = "socionext,uniphier-ld20-global-v4",
++		     "socionext,uniphier-ld20";
++};
+-- 
+2.7.4
+

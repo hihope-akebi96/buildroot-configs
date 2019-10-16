@@ -1,0 +1,36 @@
+From bf697fbb7000ed5bce7408ca43c955675794a1f4 Mon Sep 17 00:00:00 2001
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Date: Tue, 4 Jun 2019 10:24:35 +0900
+Subject: [PATCH 12/16] scripts: check-config.sh: Update local modifications
+
+Update some differences to sync with local modifications.
+
+Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+---
+ scripts/check-config.sh | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/check-config.sh b/scripts/check-config.sh
+index 583f7d0..30997e9 100755
+--- a/scripts/check-config.sh
++++ b/scripts/check-config.sh
+@@ -50,14 +50,14 @@ cat `find ${srctree} -name "Kconfig*"` |sed -n \
+ 	|sort |uniq > ${ok}
+ comm -23 ${suspects} ${ok} >${new_adhoc}
+ if [ -s ${new_adhoc} ]; then
+-	echo >&2 "Error: You must add new CONFIG options using Kconfig"
++	echo >&2 "Warning: You must add new CONFIG options using Kconfig"
+ 	echo >&2 "The following new ad-hoc CONFIG options were detected:"
+ 	cat >&2 ${new_adhoc}
+ 	echo >&2
+ 	echo >&2 "Please add these via Kconfig instead. Find a suitable Kconfig"
+ 	echo >&2 "file and add a 'config' or 'menuconfig' option."
+ 	# Don't delete the temporary files in case they are useful
+-	exit 1
++	#exit 1
+ else
+ 	rm ${suspects} ${ok} ${new_adhoc}
+ fi
+-- 
+2.7.4
+

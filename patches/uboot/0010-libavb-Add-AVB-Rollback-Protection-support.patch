@@ -1,0 +1,59 @@
+From d1df4ac0e69c6125071167068ef27bcea1f2fb3c Mon Sep 17 00:00:00 2001
+From: Hirayama Akio <hirayama.akio@socionext.com>
+Date: Tue, 19 Feb 2019 17:46:21 +0900
+Subject: [PATCH 10/16] libavb: Add AVB Rollback Protection support
+
+Signed-off-by: Hirayama Akio <hirayama.akio@socionext.com>
+---
+ lib/libavb/avb_slot_verify.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/lib/libavb/avb_slot_verify.c b/lib/libavb/avb_slot_verify.c
+index a941850..45bd5dd 100644
+--- a/lib/libavb/avb_slot_verify.c
++++ b/lib/libavb/avb_slot_verify.c
+@@ -24,6 +24,30 @@
+ /* Maximum size of a vbmeta image - 64 KiB. */
+ #define VBMETA_MAX_SIZE (64 * 1024)
+ 
++bool update_stored_rollback_indexes_for_slot(AvbOps* ops,
++                                             AvbSlotVerifyData* slot_data) {
++    for (int n = 0; n < AVB_MAX_NUMBER_OF_ROLLBACK_INDEX_LOCATIONS; n++) {
++        uint64_t rollback_index = slot_data->rollback_indexes[n];
++        if (rollback_index > 0) {
++            AvbIOResult io_ret;
++            uint64_t current_stored_rollback_index;
++
++            io_ret = ops->read_rollback_index(ops, n, &current_stored_rollback_index);
++            if (io_ret != AVB_IO_RESULT_OK) {
++                return false;
++            }
++
++            if (rollback_index > current_stored_rollback_index) {
++                io_ret = ops->write_rollback_index(ops, n, rollback_index);
++                if (io_ret != AVB_IO_RESULT_OK) {
++                    return false;
++                }
++            }
++        }
++    }
++    return true;
++}
++
+ /* Helper function to see if we should continue with verification in
+  * allow_verification_error=true mode if something goes wrong. See the
+  * comments for the avb_slot_verify() function for more information.
+@@ -1222,6 +1246,10 @@ AvbSlotVerifyResult avb_slot_verify(AvbOps* ops,
+       }
+     }
+ 
++    if (!update_stored_rollback_indexes_for_slot(ops, slot_data)) {
++      ret = AVB_SLOT_VERIFY_RESULT_ERROR_IO;
++    }
++
+     if (out_data != NULL) {
+       *out_data = slot_data;
+     } else {
+-- 
+2.7.4
+

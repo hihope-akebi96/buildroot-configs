@@ -1,0 +1,15 @@
+/*
+ * Additional Device Tree Source for rgmii of ethernet phy
+ *
+ * Copyright (C) 2016 Socionext Inc.
+ *
+ * SPDX-License-Identifier:	GPL-2.0+	X11
+ */
+
+&eth{
+	phy-mode="rgmii";
+	pinctrl-0=<&pinctrl_ether_rgmii>;
+};
+&ethphy{
+	reg=<0>;
+};

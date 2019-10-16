@@ -1,0 +1,7 @@
+
+source "$BR2_EXTERNAL_BSP_PATH/package/k_mod_audio/Config.in"
+source "$BR2_EXTERNAL_BSP_PATH/package/k_mod_ion_unph/Config.in"
+source "$BR2_EXTERNAL_BSP_PATH/package/k_mod_video_out/Config.in"
+source "$BR2_EXTERNAL_BSP_PATH/package/k_mod_net/Config.in"
+source "$BR2_EXTERNAL_BSP_PATH/package/mali-kbase/Config.in"
+source "$BR2_EXTERNAL_BSP_PATH/package/romutils/Config.in"

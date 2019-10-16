@@ -1,0 +1,76 @@
+From b56db81b32fe50cf02596c8b807b3b6df1161dc8 Mon Sep 17 00:00:00 2001
+From: Hirohisa Tanaka <tanaka.hirohisa@socionext.com>
+Date: Mon, 7 Jan 2019 11:41:06 +0900
+Subject: [PATCH 07/16] bootm: Add compressed kernel support for android boot
+ image
+
+Signed-off-by: Hirohisa Tanaka <tanaka.hirohisa@socionext.com>
+---
+ common/bootm.c | 44 +++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 43 insertions(+), 1 deletion(-)
+
+diff --git a/common/bootm.c b/common/bootm.c
+index 3adbcea..80a2935 100644
+--- a/common/bootm.c
++++ b/common/bootm.c
+@@ -81,6 +81,48 @@ static int bootm_start(cmd_tbl_t *cmdtp, int flag, int argc,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_ANDROID_BOOT_IMAGE
++struct compress_format {
++	unsigned char magic[2];
++	uint8_t comp;
++};
++
++static const struct compress_format compressed_formats[] = {
++#ifdef CONFIG_GZIP
++	{ {0x1f, 0x8b}, IH_COMP_GZIP  },
++#endif /* CONFIG_GZIP */
++#ifdef CONFIG_BZIP2
++	{ {0x42, 0x5a}, IH_COMP_BZIP2 },
++#endif /* CONFIG_BZIP2 */
++#ifdef CONFIG_LZMA
++	{ {0x5d, 0x00}, IH_COMP_LZMA  },
++#endif /* CONFIG_LZMA */
++#ifdef CONFIG_LZO
++	{ {0x89, 0x4c}, IH_COMP_LZO   },
++#endif /* CONFIG_LZO */
++#ifdef CONFIG_LZ4
++	{ {0x02, 0x21}, IH_COMP_LZ4   }
++#endif /* CONFIG_LZ4 */
++};
++
++static uint8_t compression_type(const unsigned char *buf)
++{
++	int i;
++	uint8_t comp_type = IH_COMP_NONE;
++	const struct compress_format *cf = compressed_formats;
++
++	debug("Compressed data magic: %#.2x %#.2x\n", buf[0], buf[1]);
++	for (i = 0; i < ARRAY_SIZE(compressed_formats); i++) {
++		if (!memcmp(buf, (cf + i)->magic, 2)) {
++			comp_type = (cf + i)->comp;
++			break;
++		}
++	}
++	debug("comp_type=%d\n", comp_type);
++	return comp_type;
++}
++#endif /* CONFIG_ANDROID_BOOT_IMAGE */
++
+ static int bootm_find_os(cmd_tbl_t *cmdtp, int flag, int argc,
+ 			 char * const argv[])
+ {
+@@ -154,7 +196,7 @@ static int bootm_find_os(cmd_tbl_t *cmdtp, int flag, int argc,
+ #ifdef CONFIG_ANDROID_BOOT_IMAGE
+ 	case IMAGE_FORMAT_ANDROID:
+ 		images.os.type = IH_TYPE_KERNEL;
+-		images.os.comp = IH_COMP_NONE;
++		images.os.comp = compression_type(images.os.image_start);
+ 		images.os.os = IH_OS_LINUX;
+ 
+ 		images.os.end = android_image_get_end(os_hdr);
+-- 
+2.7.4
+

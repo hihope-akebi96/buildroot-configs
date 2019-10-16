@@ -1,0 +1,67 @@
+# -------------------------------
+# SoC definition
+# -------------------------------
+config BR2_BSP_TARGET_PROC
+	string
+    default "ld20" if AKEBI96
+
+config BR2_BSP_TARGET_BOARD
+	string
+    default "ph1-ld20-global-v4" if AKEBI96
+
+config BR2_BSP_TARGET_SERIES
+	string
+    default "" if AKEBI96
+
+config BR2_BSP_TARGET_ETHPHY
+	string
+    default "rgmii" if AKEBI96
+
+config BR2_BSP_TARGET_KCONFIG
+	string
+    default "" if AKEBI96
+
+# -------------------------------
+# Target Board definition
+# -------------------------------
+choice
+	prompt "Target Board type"
+    default AKEBI96
+
+config AKEBI96
+    bool "AKEBI96 board with Android"
+    select ANDROID
+
+endchoice
+
+# -------------------------------
+# Android Config
+# -------------------------------
+config ANDROID
+    bool
+    default n
+
+if ANDROID
+
+choice
+    prompt "Select target Android version"
+    default ANDROID_900
+
+config ANDROID_900
+    bool "Android 9.0.0"
+
+endchoice
+
+endif # ANDROID
+
+# -------------------------------
+# System used memory definiton
+# -------------------------------
+choice
+    prompt "Select DDR Memory size for system"
+    default USE_MEMORY_SIZE_3GB  if AKEBI96
+
+config USE_MEMORY_SIZE_3GB
+    bool "3.0GB"
+
+endchoice

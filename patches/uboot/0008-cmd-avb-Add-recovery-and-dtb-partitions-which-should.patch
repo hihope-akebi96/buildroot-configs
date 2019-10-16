@@ -1,0 +1,27 @@
+From d7362e33f8381ddb846128661a99b80e2ad9b081 Mon Sep 17 00:00:00 2001
+From: Hirohisa Tanaka <tanaka.hirohisa@socionext.com>
+Date: Mon, 7 Jan 2019 11:42:03 +0900
+Subject: [PATCH 08/16] cmd: avb: Add recovery and dtb partitions which should
+ be verified
+
+Signed-off-by: Hirohisa Tanaka <tanaka.hirohisa@socionext.com>
+---
+ cmd/avb.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/cmd/avb.c b/cmd/avb.c
+index ff00be4..4cbfcca 100644
+--- a/cmd/avb.c
++++ b/cmd/avb.c
+@@ -17,6 +17,8 @@ static struct AvbOps *avb_ops;
+ static const char * const requested_partitions[] = {"boot",
+ 					     "system",
+ 					     "vendor",
++					     "recovery",
++					     "dtb",
+ 					     NULL};
+ 
+ int do_avb_init(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+-- 
+2.7.4
+

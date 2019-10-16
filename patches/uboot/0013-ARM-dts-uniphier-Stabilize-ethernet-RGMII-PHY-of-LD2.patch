@@ -1,0 +1,46 @@
+From d8ebb0145d1034f7ebf1f602fcf93fb4eec9814f Mon Sep 17 00:00:00 2001
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Date: Fri, 15 Feb 2019 10:47:47 +0900
+Subject: [PATCH 13/16] ARM: dts: uniphier: Stabilize ethernet RGMII PHY of
+ LD20 global board
+
+The RGMII PHY needs to change drive strength properties of the Ethernet
+pinctrl to stabilize the PHY.
+
+The devicetree for LD20 global board specifies RMII PHY in the ethernet
+node as default, however, there is also another board that has RGMII PHY.
+The devicetree for the board doesn't exist, so the users should change
+the ethernet properties by outside way.
+
+Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+---
+ arch/arm/dts/uniphier-ld20-global.dts | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/arch/arm/dts/uniphier-ld20-global.dts b/arch/arm/dts/uniphier-ld20-global.dts
+index 9ca692e..c9ed0ce 100644
+--- a/arch/arm/dts/uniphier-ld20-global.dts
++++ b/arch/arm/dts/uniphier-ld20-global.dts
+@@ -145,6 +145,19 @@
+ 	};
+ };
+ 
++&pinctrl_ether_rgmii {
++	tx {
++		pins = "RGMII_TXD0", "RGMII_TXD1", "RGMII_TXD2",
++		       "RGMII_TXD3", "RGMII_TXCTL";
++		drive-strength = <12>;
++	};
++
++	txclk {
++		pins = "RGMII_TXCLK";
++		drive-strength = <9>;
++	};
++};
++
+ &usb {
+ 	status = "okay";
+ };
+-- 
+2.7.4
+

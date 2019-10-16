@@ -1,0 +1,48 @@
+From 9d5120af20c19d8dc4503cabd445985c5df3c340 Mon Sep 17 00:00:00 2001
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Date: Tue, 4 Jun 2019 10:19:34 +0900
+Subject: [PATCH 04/16] ARM: dts: uniphier: Add support for LD21 Global board
+
+Add initial device tree support for LD21 Global board.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+---
+ arch/arm/dts/Makefile                 |  3 ++-
+ arch/arm/dts/uniphier-ld21-global.dts | 10 ++++++++++
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+ create mode 100644 arch/arm/dts/uniphier-ld21-global.dts
+
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 642df58..3000e0a 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -161,7 +161,8 @@ dtb-$(CONFIG_ARCH_UNIPHIER_LD20) += \
+ 	uniphier-ld20-global.dtb \
+ 	uniphier-ld20-global-v4.dtb \
+ 	uniphier-ld20-global16g.dtb \
+-	uniphier-ld20-ref.dtb
++	uniphier-ld20-ref.dtb \
++	uniphier-ld21-global.dtb
+ dtb-$(CONFIG_ARCH_UNIPHIER_LD4) += \
+ 	uniphier-ld4-ref.dtb
+ dtb-$(CONFIG_ARCH_UNIPHIER_LD6B) += \
+diff --git a/arch/arm/dts/uniphier-ld21-global.dts b/arch/arm/dts/uniphier-ld21-global.dts
+new file mode 100644
+index 0000000..4dbdee6
+--- /dev/null
++++ b/arch/arm/dts/uniphier-ld21-global.dts
+@@ -0,0 +1,10 @@
++#include "uniphier-ld20-global.dts"
++
++/ {
++	model = "UniPhier LD21 Global Board (REF_LD21_GP)";
++	compatible = "socionext,uniphier-ld21-global", "socionext,uniphier-ld21";
++
++	memory {
++		reg = <0 0x80000000 0 0x20000000>, <0 0xc0000000 0 0x40000000>;
++	};
++};
+-- 
+2.7.4
+

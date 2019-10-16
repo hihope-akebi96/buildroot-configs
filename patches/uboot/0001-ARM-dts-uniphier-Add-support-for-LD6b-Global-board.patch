@@ -1,0 +1,111 @@
+From f2665953515699f7cea8942e0b87d3a6ca27e000 Mon Sep 17 00:00:00 2001
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Date: Tue, 4 Jun 2019 10:21:21 +0900
+Subject: [PATCH 01/16] ARM: dts: uniphier: Add support for LD6b Global board
+
+Add initial device tree support for LD6b Global board.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+---
+ arch/arm/dts/Makefile                 |  1 +
+ arch/arm/dts/uniphier-ld6b-global.dts | 75 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 76 insertions(+)
+ create mode 100644 arch/arm/dts/uniphier-ld6b-global.dts
+
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 0aee8df..be6a6a6 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -163,6 +163,7 @@ dtb-$(CONFIG_ARCH_UNIPHIER_LD20) += \
+ dtb-$(CONFIG_ARCH_UNIPHIER_LD4) += \
+ 	uniphier-ld4-ref.dtb
+ dtb-$(CONFIG_ARCH_UNIPHIER_LD6B) += \
++	uniphier-ld6b-global.dtb \
+ 	uniphier-ld6b-ref.dtb
+ dtb-$(CONFIG_ARCH_UNIPHIER_PRO4) += \
+ 	uniphier-pro4-ace.dtb \
+diff --git a/arch/arm/dts/uniphier-ld6b-global.dts b/arch/arm/dts/uniphier-ld6b-global.dts
+new file mode 100644
+index 0000000..e76fc54
+--- /dev/null
++++ b/arch/arm/dts/uniphier-ld6b-global.dts
+@@ -0,0 +1,75 @@
++/dts-v1/;
++#include "uniphier-ld6b.dtsi"
++#include "uniphier-ref-daughter.dtsi"
++
++/ {
++	model = "UniPhier LD6b Global Board";
++	compatible = "socionext,uniphier-ld6b-global", "socionext,uniphier-ld6b";
++
++	memory {
++		device_type = "memory";
++		reg = <0x80000000 0x80000000>;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	aliases {
++		serial0 = &serial2;
++		serial1 = &serial0;
++		serial2 = &serial1;
++		i2c0 = &i2c0;
++		i2c1 = &i2c1;
++		i2c2 = &i2c2;
++		i2c3 = &i2c3;
++		i2c4 = &i2c4;
++		i2c5 = &i2c5;
++		i2c6 = &i2c6;
++	};
++};
++
++&serial0 {
++	status = "okay";
++};
++
++&serial1 {
++	status = "okay";
++};
++
++&serial2 {
++	status = "okay";
++};
++
++&i2c0 {
++	status = "okay";
++};
++
++&emmc {
++	status = "okay";
++};
++
++&sd {
++	status = "okay";
++};
++
++&usb0 {
++	status = "okay";
++};
++
++&usb1 {
++	status = "okay";
++};
++
++&eth {
++	status = "okay";
++};
++
++/* for U-Boot only */
++&serial2 {
++	u-boot,dm-pre-reloc;
++};
++
++&pinctrl_uart2 {
++	u-boot,dm-pre-reloc;
++};
+-- 
+2.7.4
+

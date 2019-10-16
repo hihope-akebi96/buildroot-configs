@@ -1,0 +1,65 @@
+From b11a201f31fb68d6a1380e97710f478c2c1af90b Mon Sep 17 00:00:00 2001
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Date: Tue, 4 Jun 2019 10:27:23 +0900
+Subject: [PATCH 16/16] ARM: uniphier: Update several changes to
+ include/configs/uniphier.h
+
+- ARM: uniphier: enable Cadence SDHCI IP
+- ARM: uniphier: remove unneeded CONFIG_SDHCI
+- ARM: uniphier: add environment variable for usbboot
+- ARM: uniphier: define CONFIG_BOARD_EARLY_INIT_R
+
+Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+---
+ include/configs/uniphier.h | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/include/configs/uniphier.h b/include/configs/uniphier.h
+index 1e509ce..c9d5a17 100644
+--- a/include/configs/uniphier.h
++++ b/include/configs/uniphier.h
+@@ -88,6 +88,8 @@
+ #define CONFIG_SYS_TIMER_RATE			1000000
+ #endif
+ 
++#define CONFIG_BOARD_EARLY_INIT_R
++
+ #define CONFIG_SYS_MAX_NAND_DEVICE			1
+ #define CONFIG_SYS_NAND_ONFI_DETECTION
+ #define CONFIG_SYS_NAND_REGS_BASE			0x68100000
+@@ -97,6 +99,10 @@
+ /* SD/MMC */
+ #define CONFIG_SUPPORT_EMMC_BOOT
+ 
++#ifdef CONFIG_MMC_SDHCI_CADENCE
++#define CONFIG_SYS_MMC_MAX_BLK_COUNT	0x8000
++#endif
++
+ /* memtest works on */
+ #define CONFIG_SYS_MEMTEST_START	CONFIG_SYS_SDRAM_BASE
+ #define CONFIG_SYS_MEMTEST_END		(CONFIG_SYS_SDRAM_BASE + 0x01000000)
+@@ -163,7 +169,9 @@
+ 	"__nfsboot=tftpboot $kernel_addr_load $bootfile && " \
+ 		"tftpboot $fdt_addr_r $fdtfile &&" \
+ 		"setenv ramdisk_addr_r - &&" \
+-		"run boot_common\0"
++		"run boot_common\0" \
++	"usbboot=run usbupdate2\0" \
++
+ #endif
+ 
+ #define	CONFIG_EXTRA_ENV_SETTINGS				\
+@@ -216,6 +224,10 @@
+ 		"usb write $loadaddr 0 100 && " \
+ 		"tftpboot $third_image && " \
+ 		"usb write $loadaddr 100 f00\0" \
++	"usb_update_addr_r=0x84100000\0" \
++	"usbupdate2=usb start && " \
++		"fatload usb 0:2 $usb_update_addr_r /boot/usb_update && " \
++		"source $usb_update_addr_r\0" \
+ 	BOOT_IMAGES \
+ 	LINUXBOOT_ENV_SETTINGS \
+ 	BOOTENV
+-- 
+2.7.4
+
