@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-K_MOD_ION_UNPH_VERSION = sni-release
+K_MOD_ION_UNPH_VERSION = master
 K_MOD_ION_UNPH_SITE = "https://github.com/96boards-akebi96/kmod-ion-unph.git"
 K_MOD_ION_UNPH_SITE_METHOD = git
 K_MOD_ION_UNPH_LICENSE = GPL

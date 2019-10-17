@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-K_MOD_AUDIO_VERSION = sni-release
+K_MOD_AUDIO_VERSION = master
 K_MOD_AUDIO_SITE = "https://github.com/96boards-akebi96/kmod-audio.git"
 K_MOD_AUDIO_SITE_METHOD = git
 K_MOD_AUDIO_LICENSE = GPL

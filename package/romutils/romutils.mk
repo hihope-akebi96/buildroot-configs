@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-ROMUTILS_VERSION = sni-release
+ROMUTILS_VERSION = master
 ROMUTILS_SITE = "https://github.com/96boards-akebi96/romutils.git"
 ROMUTILS_SITE_METHOD = git
 

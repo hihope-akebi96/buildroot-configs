@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-K_MOD_VIDEO_OUT_VERSION = sni-release
+K_MOD_VIDEO_OUT_VERSION = master
 K_MOD_VIDEO_OUT_SITE = "https://github.com/96boards-akebi96/kmod-video-out.git"
 K_MOD_VIDEO_OUT_SITE_METHOD = git
 K_MOD_VIDEO_OUT_LICENSE = GPL
