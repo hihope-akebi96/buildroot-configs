@@ -1,0 +1,4 @@
+
+config BR2_PACKAGE_K_MOD_WIFI
+    bool "WIFI drivers (from chip-vendor)"
+    depends on BR2_LINUX_KERNEL

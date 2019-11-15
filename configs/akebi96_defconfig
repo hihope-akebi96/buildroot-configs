@@ -21,6 +21,8 @@ BR2_PACKAGE_K_MOD_ION_UNPH=y
 BR2_PACKAGE_K_MOD_AUDIO=y
 BR2_PACKAGE_K_MOD_VIDEO_OUT=y
 # BR2_PACKAGE_K_MOD_NET is not set
+BR2_PACKAGE_K_MOD_BT=y
+BR2_PACKAGE_K_MOD_WIFI=y
 
 #-------------------------------------
 # Buildroot Common package setting
