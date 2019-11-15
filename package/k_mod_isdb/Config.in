@@ -1,0 +1,4 @@
+
+config BR2_PACKAGE_K_MOD_ISDB
+    bool "ISDB drivers"
+    depends on BR2_LINUX_KERNEL

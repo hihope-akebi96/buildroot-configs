@@ -55,6 +55,11 @@
 
 };
 
+&i2c4 {
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
 &soc {
 	ion {
 		compatible = "socionext,ion-uniphier";
@@ -90,5 +95,16 @@
 				<0 109 4>;
 		socionext,soc-glue = <&soc_glue>;
 		socionext,sysctrl = <&sysctrl>;
+	};
+
+	frontend {
+		compatible = "socionext,akebi96-isdb";
+		clock-names = "demod-mclk";
+		clocks = <&demod_clk>;
+		demux = <&hsc>;
+		reset-demod-gpios = <&gpio UNIPHIER_GPIO_PORT(24, 0) GPIO_ACTIVE_HIGH>;
+		demod-i2c-bus = <&i2c4>;
+		reset-tuner-gpios = <&gpio UNIPHIER_GPIO_PORT(0, 4) GPIO_ACTIVE_HIGH>;
+		tuner-i2c-bus = <&i2c4>;
 	};
 };
